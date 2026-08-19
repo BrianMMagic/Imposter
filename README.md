@@ -42,9 +42,11 @@ can be installed to a phone's home screen ("Add to Home Screen").
 - **Imposters** — 1, 2 or 3. The choice is capped at `players − 2`, so at least
   two people always share the word and there is something to work out.
 - **Categories** — 15 built in (Animals, Food & Drink, Movies, Jobs, Places,
-  Sports & Games, Around the House, Travel, Music, School, Tech, Magic,
-  Transport, Nature, Celebrations), 38 words each. Pick any combination; the
-  header shows how many words are in play.
+  Sports & Games, Around the House, Travel, Music, School, Tech, People,
+  Transport, Nature, Celebrations), 38 words each. **People** spans actors,
+  musicians, scientists, historical figures, leaders and athletes — everyone in
+  it is a household name. Pick any combination; the header shows how many words
+  are in play.
 - **Your own** — build a category from your own list of words, saved on the
   device. Edit or delete it later from the pencil on its chip.
 

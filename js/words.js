@@ -152,17 +152,18 @@
       ]
     },
     {
-      id: 'magic', emoji: '🎩', name: 'Magic',
+      id: 'people', emoji: '🧑', name: 'People',
       words: [
-        'Rabbit in a hat', 'Card trick', 'Disappearing act', 'Levitation',
-        'Magic wand', 'Sawing in half', 'Handcuffs', 'Straitjacket',
-        'Crystal ball', 'Sleight of hand', 'Top hat', 'The assistant',
-        'Escape artist', 'Mind reading', 'Vanishing coin', 'Rope trick',
-        'Abracadabra', 'Trap door', 'Smoke and mirrors', 'Houdini',
-        'Deck of cards', 'Linking rings', 'Cups and balls', 'Fire eating',
-        'Juggling', 'Pick a card', 'Optical illusion', 'Stage curtain',
-        "Rabbit's foot", 'Magic word', 'Secret pocket', 'Ventriloquist',
-        'Fortune teller', 'Wizard', 'Spell book', 'Potion', 'Genie', 'Séance'
+        'Charlie Chaplin', 'Marilyn Monroe', 'Tom Hanks', 'Audrey Hepburn',
+        'Arnold Schwarzenegger', 'Jackie Chan', 'Oprah Winfrey',
+        'Elvis Presley', 'Freddie Mercury', 'Bob Marley', 'Dolly Parton',
+        'Beyoncé', 'Mozart', 'Albert Einstein', 'Isaac Newton',
+        'Marie Curie', 'Leonardo da Vinci', 'Charles Darwin', 'Nikola Tesla',
+        'Cleopatra', 'Julius Caesar', 'Napoleon', 'Abraham Lincoln',
+        'Winston Churchill', 'Joan of Arc', 'Queen Elizabeth II',
+        'Nelson Mandela', 'Muhammad Ali', 'Michael Jordan', 'Serena Williams',
+        'Usain Bolt', 'Pelé', 'William Shakespeare', 'Vincent van Gogh',
+        'Walt Disney', 'Neil Armstrong', 'Harry Houdini', 'David Attenborough'
       ]
     },
     {

@@ -6,7 +6,7 @@
    fallback for offline use. Icons are served cache-first and
    refreshed in the background.
    ============================================================ */
-var VERSION = 'v1';
+var VERSION = 'v2';
 var CACHE = 'imposter-' + VERSION;
 
 var ASSETS = [

@@ -27,7 +27,7 @@
     '#d98cff', '#5fbf7a', '#e0a93b', '#ff6f61', '#9aa7ff'
   ];
 
-  var DEFAULT_CATEGORIES = ['animals', 'food', 'jobs', 'house'];
+  var DEFAULT_CATEGORIES = ['animals', 'food', 'people', 'jobs', 'house'];
 
   var state = null;
   var round = null;
@@ -123,9 +123,14 @@
         });
       }
     }
-    /* Drop selections pointing at categories that no longer exist. */
+    /* Drop selections, and the used-word history, for categories that no
+       longer exist — a built-in one that has been retired, or a custom one
+       that was deleted on another visit. */
     state.selected = state.selected.filter(function (id) { return !!getCategory(id); });
     if (!state.selected.length) state.selected = DEFAULT_CATEGORIES.slice();
+    Object.keys(state.recent).forEach(function (id) {
+      if (!getCategory(id)) delete state.recent[id];
+    });
     return state;
   }
 

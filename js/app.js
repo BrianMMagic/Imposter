@@ -87,43 +87,180 @@
   /* ============================================================
      Setup — players
      ============================================================ */
-  function renderPlayers() {
+  /* newId animates just that row in; a plain re-render must not re-pop the list */
+  function renderPlayers(newId) {
     var s = M.state();
-    var wrap = $('players');
-    wrap.innerHTML = '';
+    var list = $('players');
+    list.innerHTML = '';
 
-    s.players.forEach(function (p) {
-      var chip = el('span', 'player');
-
-      var name = el('button', 'player-name', p.name);
-      name.type = 'button';
-      name.setAttribute('aria-label', 'Rename ' + p.name);
-      name.addEventListener('click', function () {
-        var next = prompt('Rename player', p.name);
-        if (next != null && M.renamePlayer(p.id, next)) renderPlayers();
-      });
-
-      var x = el('button', 'player-x');
-      x.type = 'button';
-      x.setAttribute('aria-label', 'Remove ' + p.name);
-      x.appendChild(icon('M6 6l12 12M18 6 6 18'));
-      x.addEventListener('click', function () {
-        M.removePlayer(p.id);
-        buzz(8);
-        renderPlayers();
-        renderImposters();
-      });
-
-      chip.appendChild(name);
-      chip.appendChild(x);
-      wrap.appendChild(chip);
+    s.players.forEach(function (p, index) {
+      var row = playerRow(p, index);
+      if (p.id === newId) row.classList.add('is-new');
+      list.appendChild(row);
     });
 
     $('player-count').textContent = s.players.length;
     $('players-empty').hidden = s.players.length > 0;
     $('btn-clear-players').hidden = s.players.length === 0;
+    $('order-note').hidden = !s.settings.shuffleOrder || s.players.length < 2;
     renderStart();
   }
+
+  function playerRow(player, index) {
+    var row = el('div', 'player-row');
+    row.style.setProperty('--player', player.color);
+    row.dataset.id = player.id;
+
+    var grip = el('button', 'row-grip');
+    grip.type = 'button';
+    grip.setAttribute('aria-label',
+      'Reorder ' + player.name + '. Position ' + (index + 1) + ' of ' + M.state().players.length +
+      '. Drag, or use the arrow keys.');
+    grip.appendChild(icon('M4 8h16M4 12h16M4 16h16', '2'));
+    grip.addEventListener('pointerdown', function (e) { startDrag(e, row, index); });
+    grip.addEventListener('keydown', function (e) { nudgeRow(e, index); });
+
+    var swatch = el('button', 'row-swatch');
+    swatch.type = 'button';
+    swatch.setAttribute('aria-label', "Change " + player.name + "'s colour");
+    swatch.addEventListener('click', function () {
+      M.cyclePlayerColor(player.id);
+      row.style.setProperty('--player', M.getPlayer(player.id).color);
+      buzz(6);
+    });
+
+    var name = el('button', 'row-name', player.name);
+    name.type = 'button';
+    name.setAttribute('aria-label', 'Rename ' + player.name);
+    name.addEventListener('click', function () {
+      var next = prompt('Rename player', player.name);
+      if (next != null && M.renamePlayer(player.id, next)) renderPlayers();
+    });
+
+    var x = el('button', 'row-x');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Remove ' + player.name);
+    x.appendChild(icon('M6 6l12 12M18 6 6 18'));
+    x.addEventListener('click', function () {
+      M.removePlayer(player.id);
+      buzz(8);
+      renderPlayers();
+      renderImposters();
+    });
+
+    row.appendChild(grip);
+    row.appendChild(swatch);
+    row.appendChild(name);
+    row.appendChild(x);
+    return row;
+  }
+
+  /* ============================================================
+     Dragging a player up or down the list
+
+     The row under the finger is moved with a transform and the rows
+     it passes slide out of its way by exactly one slot, so the gap
+     always shows where it would land. Nothing is committed to the
+     model until the finger lifts.
+     ============================================================ */
+  var drag = null;
+
+  function startDrag(e, row, index) {
+    if (e.button != null && e.button !== 0) return;
+    var rows = Array.prototype.slice.call($('players').children);
+    if (rows.length < 2) return;
+    e.preventDefault();
+
+    var first = rows[0].getBoundingClientRect();
+    var second = rows[1].getBoundingClientRect();
+
+    drag = {
+      row: row,
+      rows: rows,
+      from: index,
+      to: index,
+      startY: e.clientY,
+      stride: second.top - first.top,
+      grip: e.currentTarget
+    };
+
+    drag.grip.setPointerCapture && drag.grip.setPointerCapture(e.pointerId);
+    row.classList.add('is-dragging');
+    $('players').classList.add('is-reordering');
+    buzz(10);
+
+    drag.grip.addEventListener('pointermove', onDragMove);
+    drag.grip.addEventListener('pointerup', endDrag);
+    drag.grip.addEventListener('pointercancel', endDrag);
+  }
+
+  function onDragMove(e) {
+    if (!drag) return;
+    e.preventDefault();
+
+    var dy = e.clientY - drag.startY;
+    var last = drag.rows.length - 1;
+    /* keep the row inside the list rather than letting it fly off */
+    var min = -drag.from * drag.stride;
+    var max = (last - drag.from) * drag.stride;
+    drag.row.style.transform = 'translateY(' + Math.max(min, Math.min(max, dy)) + 'px)';
+
+    var to = Math.max(0, Math.min(last, drag.from + Math.round(dy / drag.stride)));
+    if (to !== drag.to) {
+      drag.to = to;
+      layoutGap();
+      buzz(5);
+    }
+  }
+
+  function layoutGap() {
+    drag.rows.forEach(function (r, i) {
+      if (i === drag.from) return;
+      var shift = 0;
+      if (drag.from < drag.to && i > drag.from && i <= drag.to) shift = -drag.stride;
+      else if (drag.from > drag.to && i >= drag.to && i < drag.from) shift = drag.stride;
+      r.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+    });
+  }
+
+  function endDrag() {
+    if (!drag) return;
+    var moved = drag.from !== drag.to;
+
+    drag.grip.removeEventListener('pointermove', onDragMove);
+    drag.grip.removeEventListener('pointerup', endDrag);
+    drag.grip.removeEventListener('pointercancel', endDrag);
+    drag.rows.forEach(function (r) { r.style.transform = ''; });
+    drag.row.classList.remove('is-dragging');
+    $('players').classList.remove('is-reordering');
+
+    if (moved) {
+      M.movePlayer(drag.from, drag.to);
+      buzz(12);
+    }
+    drag = null;
+    if (moved) renderPlayers();
+  }
+
+  /* Arrow keys on the grip do the same job without a pointer. */
+  function nudgeRow(e, index) {
+    var delta = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+    if (!delta) return;
+    e.preventDefault();
+    if (!M.movePlayer(index, index + delta)) return;
+    buzz(10);
+    renderPlayers();
+    /* keep the keyboard on the row that just moved */
+    var rows = $('players').children;
+    var landed = rows[Math.max(0, Math.min(rows.length - 1, index + delta))];
+    if (landed) landed.querySelector('.row-grip').focus();
+  }
+
+  $('btn-use-order').addEventListener('click', function () {
+    M.setSetting('shuffleOrder', false);
+    renderPlayers();
+    toast('Cards follow your order');
+  });
 
   $('form-player').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -133,7 +270,7 @@
     if (res.ok) {
       input.value = '';
       buzz(10);
-      renderPlayers();
+      renderPlayers(res.player.id);
       renderImposters();
       input.focus();
     } else if (res.reason === 'duplicate') {
@@ -278,6 +415,7 @@
     if (!card) return;
 
     closeCard();
+    $('card').style.setProperty('--player', card.player.color);
     $('card').classList.toggle('is-seen', card.seen);
     $('card').classList.toggle('is-imposter', card.isImposter);
     $('card-eyebrow').textContent = card.position === 1 ? 'First up' : 'Pass to';
@@ -404,6 +542,7 @@
     var round = M.currentRound();
     if (!round) return;
 
+    $('starter').style.setProperty('--player', round.starter.color);
     $('starter-name').textContent = round.starter.name;
     $('done-sub').textContent = round.imposterCount === 1
       ? 'Say one word about the secret word, then go round the group. One of you is faking it.'

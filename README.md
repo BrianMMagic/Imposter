@@ -32,7 +32,11 @@ can be installed to a phone's home screen ("Add to Home Screen").
 
 **Setup**
 
-- **Players** — add, rename (tap a name) or remove. Up to 20.
+- **Players** — add, rename (tap a name) or remove. Up to 20. Each one gets its
+  own colour, and the list is the **order the phone goes round**: drag a row by
+  its grip to move it (arrow keys work too, for a keyboard). Tap a player's
+  swatch to give them a different colour — it steps to the next one nobody else
+  is wearing, so no two cards ever look alike.
 - **Imposters** — 1, 2 or 3. The choice is capped at `players − 2`, so at least
   two people always share the word and there is something to work out.
 - **Categories** — 15 built in (Animals, Food & Drink, Movies, Jobs, Places,
@@ -44,6 +48,9 @@ can be installed to a phone's home screen ("Add to Home Screen").
 
 **Passing the phone**
 
+- Every player's card is in **their own colour** — the border, the wash behind
+  their name and the mask emblem — so it is obvious at a glance whose turn it is
+  and that the card has actually changed hands.
 - Hold to reveal, release to hide. A card only opens after the finger has been
   down for a moment, so brushing the screen mid-handover can never show somebody
   else's card.
@@ -54,7 +61,7 @@ can be installed to a phone's home screen ("Add to Home Screen").
 
 **Starting the round**
 
-- A random player is picked to start.
+- A random player is picked to start, shown in their own colour.
 - **New round** deals a fresh word to the same players; **Change setup** goes back.
 - At the bottom, **hold to reveal the answer** — the word and who the imposters
   were — for settling it once the round is over.
@@ -63,7 +70,9 @@ can be installed to a phone's home screen ("Add to Home Screen").
 
 - **Imposter sees the category** — their card shows the category name so they can
   bluff plausibly. Switch it off for a harder game.
-- **Shuffle the pass order** — cards come up in a random order each round.
+- **Shuffle the pass order** — off by default, so cards follow the order you set
+  in the players list. Turn it on to have them come up at random each round
+  instead; the players list says so while it is on, with a one-tap way back.
 - **Vibrate on reveal**, **keep the screen awake**, and **reset everything**.
 
 ## Layout
@@ -87,4 +96,6 @@ icons/                  app icons — make-icons.py regenerates the PNGs
 - Word and imposter picking use `crypto.getRandomValues` with rejection sampling,
   so every player and every word is equally likely — no modulo bias.
 - The last dozen words used in a category are held back from coming round again.
+- There are as many player colours as the 20-player maximum, so a full game
+  never has to reuse a shade.
 - Data lives only in this browser on this device; there is no account or sync.

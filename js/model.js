@@ -17,6 +17,16 @@
 
   var BUILT_IN = global.ImposterWords.CATEGORIES;
 
+  /* One colour per player, so every card in the pass is a different one.
+     There are as many colours here as MAX_PLAYERS, so a full game never
+     has to reuse a shade. */
+  var PLAYER_COLORS = [
+    '#7c5cff', '#ff6b9d', '#2fb8ff', '#3ddc97', '#ff8b3d',
+    '#ffc93c', '#ff5c6c', '#00c2a8', '#a06bff', '#4dd4ff',
+    '#ff7ad9', '#8ed94f', '#5b8cff', '#ff9f68', '#26c6da',
+    '#d98cff', '#5fbf7a', '#e0a93b', '#ff6f61', '#9aa7ff'
+  ];
+
   var DEFAULT_CATEGORIES = ['animals', 'food', 'jobs', 'house'];
 
   var state = null;
@@ -67,7 +77,7 @@
       settings: {
         imposterSeesCategory: true,
         haptics: true,
-        shuffleOrder: true,
+        shuffleOrder: false,
         keepAwake: true
       }
     };
@@ -82,7 +92,14 @@
         state.players = saved.players
           .filter(function (p) { return p && p.name; })
           .slice(0, MAX_PLAYERS)
-          .map(function (p) { return { id: p.id || uid('p'), name: cleanName(p.name) }; });
+          .map(function (p) {
+            return { id: p.id || uid('p'), name: cleanName(p.name), color: normalizeColor(p.color) };
+          });
+        /* Anything saved before colours existed, or sharing one, gets its own. */
+        state.players.forEach(function (p, i) {
+          var clash = state.players.some(function (o, j) { return j < i && o.color === p.color; });
+          if (!p.color || clash) p.color = unusedColor();
+        });
       }
       if (Array.isArray(saved.custom)) {
         state.custom = saved.custom
@@ -126,6 +143,40 @@
   /* ============================================================
      Players
      ============================================================ */
+  function normalizeColor(c) {
+    var v = String(c || '').trim().toLowerCase();
+    return /^#[0-9a-f]{6}$/.test(v) ? v : '';
+  }
+
+  /* The first colour nobody has yet; if every one is taken, the least used. */
+  function unusedColor(exclude) {
+    var taken = {};
+    state.players.forEach(function (p) {
+      if (p.id !== exclude) taken[p.color] = (taken[p.color] || 0) + 1;
+    });
+    var best = PLAYER_COLORS[0], bestUse = Infinity;
+    for (var i = 0; i < PLAYER_COLORS.length; i++) {
+      var use = taken[PLAYER_COLORS[i]] || 0;
+      if (use === 0) return PLAYER_COLORS[i];
+      if (use < bestUse) { bestUse = use; best = PLAYER_COLORS[i]; }
+    }
+    return best;
+  }
+
+  /* Step to the next colour no one else is wearing. */
+  function cyclePlayerColor(id) {
+    var player = getPlayer(id);
+    if (!player) return null;
+    var taken = {};
+    state.players.forEach(function (p) { if (p.id !== id) taken[p.color] = true; });
+    var at = PLAYER_COLORS.indexOf(player.color);
+    for (var step = 1; step <= PLAYER_COLORS.length; step++) {
+      var next = PLAYER_COLORS[(at + step + PLAYER_COLORS.length) % PLAYER_COLORS.length];
+      if (!taken[next]) { player.color = next; save(); return next; }
+    }
+    return player.color;
+  }
+
   function cleanName(name) {
     return String(name == null ? '' : name).replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
   }
@@ -138,7 +189,7 @@
       return p.name.toLowerCase() === clean.toLowerCase();
     });
     if (taken) return { ok: false, reason: 'duplicate' };
-    var player = { id: uid('p'), name: clean };
+    var player = { id: uid('p'), name: clean, color: unusedColor() };
     state.players.push(player);
     state.imposterCount = clampImposters(state.imposterCount);
     save();
@@ -165,6 +216,17 @@
     state.players = [];
     state.imposterCount = clampImposters(state.imposterCount);
     save();
+  }
+
+  /* Move a player to another slot, carrying everyone else along. */
+  function movePlayer(from, to) {
+    var last = state.players.length - 1;
+    from = Math.max(0, Math.min(last, from));
+    to = Math.max(0, Math.min(last, to));
+    if (from === to) return false;
+    state.players.splice(to, 0, state.players.splice(from, 1)[0]);
+    save();
+    return true;
   }
 
   function getPlayer(id) {
@@ -396,7 +458,8 @@
     state: function () { return state; },
 
     addPlayer: addPlayer, removePlayer: removePlayer, renamePlayer: renamePlayer,
-    clearPlayers: clearPlayers, getPlayer: getPlayer,
+    clearPlayers: clearPlayers, getPlayer: getPlayer, movePlayer: movePlayer,
+    cyclePlayerColor: cyclePlayerColor, PLAYER_COLORS: PLAYER_COLORS,
 
     maxImposters: maxImposters, setImposterCount: setImposterCount,
 

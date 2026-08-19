@@ -165,31 +165,79 @@ svg{width:24px;height:24px}
 }
 .btn-add:active{transform:scale(.94)}
 
-.players{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.players:empty{display:none}
-.player{
-  display:flex;align-items:center;gap:6px;
+/* ---------- the player list, in pass order ---------- */
+.player-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.player-list:empty{display:none}
+
+.player-row{
+  display:flex;align-items:center;gap:8px;
   background:var(--surface-2);
   border:1px solid var(--line);
-  border-radius:999px;
-  padding:7px 7px 7px 14px;
-  font-weight:650;font-size:14.5px;
-  animation:pop .18s ease;
-  max-width:100%;
+  border-radius:var(--radius-sm);
+  padding:6px 6px 6px 13px;
+  position:relative;
+  transition:transform .16s cubic-bezier(.2,.9,.3,1);
+  will-change:transform;
 }
-@keyframes pop{from{transform:scale(.88);opacity:0}to{transform:none;opacity:1}}
-.player-name{
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  background:none;padding:0;font-weight:650;text-align:left;
+.player-row.is-new{animation:pop .18s ease}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+
+/* the player's colour as an inset bar, so the list is scannable by colour */
+.player-row::before{
+  content:"";position:absolute;
+  left:5px;top:9px;bottom:9px;width:3px;
+  border-radius:3px;
+  background:var(--player,var(--accent));
 }
-.player-x{
-  width:26px;height:26px;flex:none;border-radius:50%;
+
+/* the row under the finger follows it exactly — no easing, and on top */
+.player-row.is-dragging{
+  transition:none;
+  z-index:5;
+  box-shadow:var(--shadow);
+  border-color:var(--player,var(--accent));
+  background:var(--surface);
+}
+.player-list.is-reordering .player-row{cursor:grabbing}
+
+.row-grip{
+  width:36px;height:40px;flex:none;
   display:grid;place-items:center;color:var(--muted);
-  background:color-mix(in srgb,var(--line) 70%,transparent);
+  border-radius:9px;
+  touch-action:none;                 /* the grip drags, it never scrolls */
+  cursor:grab;
 }
-.player-x svg{width:14px;height:14px}
-.player-x:active{background:var(--danger);color:#fff}
+.row-grip svg{width:18px;height:18px}
+.row-grip:active{background:color-mix(in srgb,var(--line) 60%,transparent)}
+
+.row-swatch{
+  width:26px;height:26px;flex:none;border-radius:50%;
+  background:var(--player,var(--accent));
+  border:2px solid color-mix(in srgb,var(--player,var(--accent)) 55%,var(--surface-2));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--player,var(--accent)) 22%,transparent);
+}
+.row-swatch:active{transform:scale(.88)}
+
+.row-name{
+  flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:none;padding:0 2px;font-weight:650;font-size:15.5px;text-align:left;
+  min-height:40px;
+}
+.row-x{
+  width:34px;height:34px;flex:none;border-radius:50%;
+  display:grid;place-items:center;color:var(--muted);
+}
+.row-x svg{width:15px;height:15px}
+.row-x:active{background:var(--danger);color:#fff}
+
 .empty-note{color:var(--muted);font-size:13.5px;margin-top:12px}
+.order-note{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  color:var(--muted);font-size:12.5px;margin-top:10px;
+}
+.order-note[hidden]{display:none}
+.order-note .link-btn{font-size:12.5px;min-height:0;padding:0}
 
 /* imposters */
 .segmented{
@@ -296,12 +344,21 @@ svg{width:24px;height:24px}
 
 .card-stage{flex:1;min-height:0;display:flex;padding:4px 0 14px}
 
+/* --player is set on these two by the app; --player-ink has to be declared
+   here rather than on :root, because a custom property is substituted where
+   it is declared and would otherwise resolve before --player exists.
+   Mixing toward the body text keeps a pale yellow readable on white and a
+   deep blue readable on black. */
+.reveal-card,.starter{
+  --player-ink:color-mix(in srgb, var(--player,var(--accent)) 72%, var(--text));
+}
+
 .reveal-card{
   position:relative;
   flex:1;width:100%;
   border-radius:26px;
   background:var(--surface);
-  border:1px solid var(--line);
+  border:2px solid color-mix(in srgb,var(--player,var(--accent)) 45%,var(--line));
   box-shadow:var(--shadow);
   overflow:hidden;
   display:block;
@@ -311,7 +368,7 @@ svg{width:24px;height:24px}
   transition:transform .16s ease;
 }
 .reveal-card:active{transform:scale(.995)}
-.reveal-card.is-open{border-color:transparent}
+.reveal-card.is-open{border-color:color-mix(in srgb,var(--player,var(--accent)) 55%,transparent)}
 
 .card-front,.card-back{
   position:absolute;inset:0;
@@ -323,7 +380,7 @@ svg{width:24px;height:24px}
 /* face down */
 .card-front{
   background:
-    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 60%),
+    radial-gradient(125% 82% at 50% 0%, color-mix(in srgb,var(--player,var(--accent)) 26%,transparent), transparent 62%),
     var(--surface);
 }
 /* the mask from the app icon, as a small emblem above the name */
@@ -331,12 +388,15 @@ svg{width:24px;height:24px}
   content:"";
   width:96px;aspect-ratio:348/134;flex:none;
   margin-bottom:4px;
-  background:currentColor;color:var(--muted);
-  opacity:.28;
+  background:currentColor;color:var(--player,var(--muted));
+  opacity:.55;
   -webkit-mask:var(--mask-art) center/contain no-repeat;
   mask:var(--mask-art) center/contain no-repeat;
 }
-.card-eyebrow{color:var(--muted);font-size:14px;font-weight:650;letter-spacing:.02em;position:relative}
+.card-eyebrow{
+  color:var(--player-ink);font-size:14px;font-weight:700;letter-spacing:.02em;
+  position:relative;opacity:.85;
+}
 .card-name{
   position:relative;
   font-size:clamp(32px,11vw,50px);font-weight:800;letter-spacing:-.03em;
@@ -418,9 +478,9 @@ svg{width:24px;height:24px}
   padding:22px 24px;margin:4px 0;
   border-radius:24px;
   background:
-    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb,var(--accent) 22%,transparent), transparent 65%),
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb,var(--player,var(--accent)) 30%,transparent), transparent 65%),
     var(--surface);
-  border:1px solid var(--line);
+  border:2px solid color-mix(in srgb,var(--player,var(--accent)) 40%,var(--line));
   box-shadow:var(--shadow);
   animation:rise .4s cubic-bezier(.2,.9,.3,1.2);
   max-width:100%;
@@ -429,8 +489,7 @@ svg{width:24px;height:24px}
 .starter-name{
   font-size:clamp(34px,11vw,50px);font-weight:850;letter-spacing:-.03em;
   line-height:1.1;overflow-wrap:anywhere;
-  background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  -webkit-background-clip:text;background-clip:text;color:transparent;
+  color:var(--player-ink);
 }
 .starter-tag{
   font-size:14px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;

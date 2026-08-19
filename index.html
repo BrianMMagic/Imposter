@@ -38,6 +38,7 @@
           <h2>Players</h2>
           <span class="pill" id="player-count">0</span>
         </div>
+        <p class="card-sub">Drag to reorder. Tap a colour to change it.</p>
         <form class="add-row" id="form-player" autocomplete="off">
           <input class="input" id="input-player" type="text" inputmode="text"
                  placeholder="Add a player…" maxlength="18"
@@ -47,8 +48,12 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
           </button>
         </form>
-        <div class="players" id="players"></div>
+        <div class="player-list" id="players"></div>
         <p class="empty-note" id="players-empty">Add everyone playing — at least 3.</p>
+        <p class="order-note" id="order-note" hidden>
+          <span>Shuffle is on, so cards come up in a random order.</span>
+          <button class="link-btn link-accent" id="btn-use-order" type="button">Use this order</button>
+        </p>
         <button class="link-btn" id="btn-clear-players" hidden>Remove all players</button>
       </section>
 

@@ -176,6 +176,9 @@ svg{width:24px;height:24px}
   border-radius:var(--radius-sm);
   padding:6px 6px 6px 13px;
   position:relative;
+  cursor:grab;
+  -webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;
   transition:transform .16s cubic-bezier(.2,.9,.3,1);
   will-change:transform;
 }
@@ -198,12 +201,14 @@ svg{width:24px;height:24px}
   border-color:var(--player,var(--accent));
   background:var(--surface);
 }
+.player-list.is-reordering{touch-action:none}
 .player-list.is-reordering .player-row{cursor:grabbing}
 
 .row-grip{
-  width:36px;height:40px;flex:none;
+  width:38px;height:42px;flex:none;
   display:grid;place-items:center;color:var(--muted);
-  border-radius:9px;
+  border-radius:10px;
+  background:color-mix(in srgb,var(--line) 45%,transparent);
   touch-action:none;                 /* the grip drags, it never scrolls */
   cursor:grab;
 }

@@ -110,6 +110,8 @@
     var row = el('div', 'player-row');
     row.style.setProperty('--player', player.color);
     row.dataset.id = player.id;
+    row.addEventListener('pointerdown', function (e) { onRowDown(e, row, index); });
+    row.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
     var grip = el('button', 'row-grip');
     grip.type = 'button';
@@ -117,13 +119,13 @@
       'Reorder ' + player.name + '. Position ' + (index + 1) + ' of ' + M.state().players.length +
       '. Drag, or use the arrow keys.');
     grip.appendChild(icon('M4 8h16M4 12h16M4 16h16', '2'));
-    grip.addEventListener('pointerdown', function (e) { startDrag(e, row, index); });
     grip.addEventListener('keydown', function (e) { nudgeRow(e, index); });
 
     var swatch = el('button', 'row-swatch');
     swatch.type = 'button';
     swatch.setAttribute('aria-label', "Change " + player.name + "'s colour");
     swatch.addEventListener('click', function () {
+      if (!tapAllowed()) return;
       M.cyclePlayerColor(player.id);
       row.style.setProperty('--player', M.getPlayer(player.id).color);
       buzz(6);
@@ -133,6 +135,7 @@
     name.type = 'button';
     name.setAttribute('aria-label', 'Rename ' + player.name);
     name.addEventListener('click', function () {
+      if (!tapAllowed()) return;
       var next = prompt('Rename player', player.name);
       if (next != null && M.renamePlayer(player.id, next)) renderPlayers();
     });
@@ -142,6 +145,7 @@
     x.setAttribute('aria-label', 'Remove ' + player.name);
     x.appendChild(icon('M6 6l12 12M18 6 6 18'));
     x.addEventListener('click', function () {
+      if (!tapAllowed()) return;
       M.removePlayer(player.id);
       buzz(8);
       renderPlayers();
@@ -156,48 +160,96 @@
   }
 
   /* ============================================================
-     Dragging a player up or down the list
+     Reordering the list
 
-     The row under the finger is moved with a transform and the rows
-     it passes slide out of its way by exactly one slot, so the gap
-     always shows where it would land. Nothing is committed to the
-     model until the finger lifts.
+     A row can be dragged straight away by its grip, or picked up by
+     holding anywhere on it — which is what most people try first. A
+     touch that moves before the row lifts is a scroll, so the page
+     scrolls and nothing is picked up; once a row has lifted, scrolling
+     is blocked until the finger comes off.
+
+     Everything is tracked on the document rather than through pointer
+     capture, so a finger that strays outside the row keeps dragging,
+     and capture never steals the click from the buttons in the row.
      ============================================================ */
-  var drag = null;
+  var LIFT_MS = 200;        // hold before a row lifts, when not using the grip
+  var SLOP = 8;             // movement that turns a hold into a scroll
+  var press = null;         // a finger is down on a row
+  var drag = null;          // ...and a row has lifted
+  var suppressTapUntil = 0; // a drag must not leave a stray tap behind
 
-  function startDrag(e, row, index) {
+  function tapAllowed() { return Date.now() > suppressTapUntil; }
+
+  function onRowDown(e, row, index) {
     if (e.button != null && e.button !== 0) return;
+    if (press || drag) return;
+    /* the swatch and the remove button are taps, never handles */
+    if (e.target.closest('.row-swatch, .row-x')) return;
+
+    press = {
+      row: row,
+      index: index,
+      startX: e.clientX,
+      startY: e.clientY,
+      timer: null
+    };
+
+    document.addEventListener('pointermove', onPressMove);
+    document.addEventListener('pointerup', onPressUp);
+    document.addEventListener('pointercancel', onPressUp);
+
+    if (e.target.closest('.row-grip')) {
+      e.preventDefault();       /* the grip is a handle, so lift at once */
+      lift();
+    } else {
+      press.timer = setTimeout(lift, LIFT_MS);
+    }
+  }
+
+  function onPressMove(e) {
+    if (!press) return;
+    if (drag) { onDragMove(e); return; }
+    /* it moved before it lifted, so they are scrolling the page */
+    if (Math.abs(e.clientY - press.startY) > SLOP ||
+        Math.abs(e.clientX - press.startX) > SLOP) endPress();
+  }
+
+  function onPressUp() {
+    if (drag) endDrag(); else endPress();
+  }
+
+  function endPress() {
+    if (!press) return;
+    clearTimeout(press.timer);
+    document.removeEventListener('pointermove', onPressMove);
+    document.removeEventListener('pointerup', onPressUp);
+    document.removeEventListener('pointercancel', onPressUp);
+    press = null;
+  }
+
+  function lift() {
+    if (!press || drag) return;
     var rows = Array.prototype.slice.call($('players').children);
-    if (rows.length < 2) return;
-    e.preventDefault();
+    if (rows.length < 2) { endPress(); return; }
 
     var first = rows[0].getBoundingClientRect();
     var second = rows[1].getBoundingClientRect();
 
     drag = {
-      row: row,
+      row: press.row,
       rows: rows,
-      from: index,
-      to: index,
-      startY: e.clientY,
-      stride: second.top - first.top,
-      grip: e.currentTarget
+      from: press.index,
+      to: press.index,
+      startY: press.startY,
+      stride: second.top - first.top
     };
 
-    drag.grip.setPointerCapture && drag.grip.setPointerCapture(e.pointerId);
-    row.classList.add('is-dragging');
+    drag.row.classList.add('is-dragging');
     $('players').classList.add('is-reordering');
-    buzz(10);
-
-    drag.grip.addEventListener('pointermove', onDragMove);
-    drag.grip.addEventListener('pointerup', endDrag);
-    drag.grip.addEventListener('pointercancel', endDrag);
+    buzz(12);
   }
 
   function onDragMove(e) {
-    if (!drag) return;
-    e.preventDefault();
-
     var dy = e.clientY - drag.startY;
     var last = drag.rows.length - 1;
     /* keep the row inside the list rather than letting it fly off */
@@ -224,23 +276,29 @@
   }
 
   function endDrag() {
-    if (!drag) return;
     var moved = drag.from !== drag.to;
 
-    drag.grip.removeEventListener('pointermove', onDragMove);
-    drag.grip.removeEventListener('pointerup', endDrag);
-    drag.grip.removeEventListener('pointercancel', endDrag);
     drag.rows.forEach(function (r) { r.style.transform = ''; });
     drag.row.classList.remove('is-dragging');
     $('players').classList.remove('is-reordering');
-
     if (moved) {
       M.movePlayer(drag.from, drag.to);
       buzz(12);
     }
     drag = null;
+    endPress();
+
+    /* the release would otherwise land as a tap on whatever is now there */
+    suppressTapUntil = Date.now() + 400;
     if (moved) renderPlayers();
   }
+
+  /* While a row is lifted the page must not scroll under it. The hold has
+     to sit still to lift at all, so no scroll is ever under way by then and
+     this preventDefault still bites. */
+  document.addEventListener('touchmove', function (e) {
+    if (drag && e.cancelable) e.preventDefault();
+  }, { passive: false });
 
   /* Arrow keys on the grip do the same job without a pointer. */
   function nudgeRow(e, index) {

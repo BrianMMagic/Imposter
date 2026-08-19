@@ -33,8 +33,10 @@ can be installed to a phone's home screen ("Add to Home Screen").
 **Setup**
 
 - **Players** — add, rename (tap a name) or remove. Up to 20. Each one gets its
-  own colour, and the list is the **order the phone goes round**: drag a row by
-  its grip to move it (arrow keys work too, for a keyboard). Tap a player's
+  own colour, and the list is the **order the phone goes round**: hold a player
+  and drag them, or drag straight away by the handle on the left (arrow keys
+  work too, for a keyboard). A quick swipe on a row still scrolls the page —
+  only a hold picks somebody up. Tap a player's
   swatch to give them a different colour — it steps to the next one nobody else
   is wearing, so no two cards ever look alike.
 - **Imposters** — 1, 2 or 3. The choice is capped at `players − 2`, so at least

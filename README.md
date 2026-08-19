@@ -23,7 +23,9 @@ can be installed to a phone's home screen ("Add to Home Screen").
 2. **Pass the phone around.** Each player's name comes up on a card. They press
    and hold it to see the secret word — or that they're the imposter — then let
    go and hand the phone on. The card closes the instant they release.
-3. Once everyone has looked, the app picks a **random player to start**.
+3. Once everyone has looked, the app picks a **random player to start**. Anyone
+   who forgets their word later can tap their own name to hold their card open
+   again — it changes nothing about the round.
 4. Go round the group, each saying **one word** about the secret word. The
    imposters have to blend in without knowing it. After a round or two, everyone
    votes on who's faking.
@@ -66,6 +68,10 @@ can be installed to a phone's home screen ("Add to Home Screen").
 **Starting the round**
 
 - A random player is picked to start, shown in their own colour.
+- **Forgotten yours?** Every player's name is listed underneath. Tap yours to
+  see your card again, held open the same way so nothing flashes on screen.
+  Looking is free: it does not change the pass, the starter or the word, and it
+  can be done as often as anyone likes.
 - **New round** deals a fresh word to the same players; **Change setup** goes back.
 - At the bottom, **hold to reveal the answer** — the word and who the imposters
   were — for settling it once the round is over.

@@ -467,19 +467,40 @@
      ============================================================ */
   var holding = false;
   var holdTimer = null;
+  var peeking = null;        // a player id while somebody re-checks their card
 
   function renderCard() {
     var card = M.currentCard();
     if (!card) return;
+    peeking = null;
 
+    paintCard(card, card.position === 1 ? 'First up' : 'Pass to');
+
+    var dots = $('progress');
+    dots.innerHTML = '';
+    for (var i = 0; i < card.total; i++) {
+      var dot = el('span', 'dot');
+      if (i < card.position - 1) dot.classList.add('is-done');
+      else if (i === card.position - 1) dot.classList.add('is-now');
+      dots.appendChild(dot);
+    }
+    $('progress-text').textContent = card.position + ' / ' + card.total;
+    $('btn-quit').setAttribute('aria-label', 'Quit round');
+
+    renderNextButton(card);
+  }
+
+  /* Fills the card for whoever it belongs to. The back is written now, but
+     it sits behind an opaque face until the card is held open. */
+  function paintCard(card, eyebrow) {
     closeCard();
-    $('card').style.setProperty('--player', card.player.color);
-    $('card').classList.toggle('is-seen', card.seen);
-    $('card').classList.toggle('is-imposter', card.isImposter);
-    $('card-eyebrow').textContent = card.position === 1 ? 'First up' : 'Pass to';
+    var node = $('card');
+    node.style.setProperty('--player', card.player.color);
+    node.classList.toggle('is-seen', !!card.seen);
+    node.classList.toggle('is-imposter', card.isImposter);
+    $('card-eyebrow').textContent = eyebrow;
     $('card-name').textContent = card.player.name;
 
-    /* Fill the back now — it is behind an opaque face until opened. */
     if (card.isImposter) {
       $('back-label').textContent = 'You are the';
       $('back-word').textContent = 'Imposter';
@@ -493,19 +514,28 @@
       $('back-word').className = 'back-word ' + lengthClass(card.word);
       $('back-note').textContent = card.category.emoji + ' ' + card.category.name;
     }
+  }
 
-    /* progress dots */
-    var dots = $('progress');
-    dots.innerHTML = '';
-    for (var i = 0; i < card.total; i++) {
-      var dot = el('span', 'dot');
-      if (i < card.position - 1) dot.classList.add('is-done');
-      else if (i === card.position - 1) dot.classList.add('is-now');
-      dots.appendChild(dot);
-    }
-    $('progress-text').textContent = card.position + ' / ' + card.total;
+  /* Someone has forgotten their word mid-round. Same card, same hold to
+     open it, but it changes nothing about whose turn it is. */
+  function showPeek(playerId) {
+    var card = M.peekCard(playerId);
+    if (!card) return;
+    peeking = playerId;
 
-    renderNextButton(card);
+    paintCard(card, 'Reminder for');
+    $('progress').innerHTML = '';            /* keeps its space, shows no steps */
+    $('progress-text').textContent = 'Reminder';
+    $('btn-quit').setAttribute('aria-label', 'Back to the round');
+    $('btn-next').disabled = false;
+    $('btn-next').textContent = 'Back to the round';
+    showView('reveal');
+  }
+
+  function endPeek() {
+    closeCard();
+    peeking = null;
+    showView('done');
   }
 
   function lengthClass(word) {
@@ -533,8 +563,10 @@
   function openCard() {
     if (!holding) return;
     $('card').classList.add('is-open');
-    M.markSeen();
-    renderNextButton(M.currentCard());
+    if (!peeking) {
+      M.markSeen();
+      renderNextButton(M.currentCard());
+    }
     buzz(12);
   }
 
@@ -577,6 +609,7 @@
   card.addEventListener('blur', closeCard);
 
   $('btn-next').addEventListener('click', function () {
+    if (peeking) { endPeek(); return; }
     closeCard();
     if (M.nextPlayer()) {
       renderCard();
@@ -587,6 +620,7 @@
   });
 
   $('btn-quit').addEventListener('click', function () {
+    if (peeking) { endPeek(); return; }
     if (!confirm('Quit this round? Nobody else will see their card.')) return;
     closeCard();
     M.endRound();
@@ -596,9 +630,25 @@
   /* ============================================================
      Round start
      ============================================================ */
+  function renderPeekList() {
+    var list = $('peek-list');
+    list.innerHTML = '';
+    M.state().players.forEach(function (p) {
+      var chip = el('button', 'peek-chip');
+      chip.type = 'button';
+      chip.style.setProperty('--player', p.color);
+      chip.setAttribute('aria-label', 'Show ' + p.name + "'s card again");
+      chip.appendChild(el('span', null, p.name));
+      chip.addEventListener('click', function () { showPeek(p.id); });
+      list.appendChild(chip);
+    });
+  }
+
   function showDone() {
     var round = M.currentRound();
     if (!round) return;
+    peeking = null;
+    renderPeekList();
 
     $('starter').style.setProperty('--player', round.starter.color);
     $('starter-name').textContent = round.starter.name;

@@ -471,6 +471,9 @@ svg{width:24px;height:24px}
 .view-done{
   flex:1;min-height:0;display:flex;
   padding:16px 16px calc(var(--safe-b) + 16px);
+  /* the body does not scroll while playing, but a big group makes this
+     screen taller than the phone, so it scrolls on its own */
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
 }
 .done-inner{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -503,6 +506,27 @@ svg{width:24px;height:24px}
 .done-sub{color:var(--muted);font-size:14.5px;max-width:20em;line-height:1.6}
 .done-actions{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:14px}
 .done-actions .btn-ghost{width:100%}
+
+/* mid-round reminder */
+.peek{margin-top:26px;width:100%}
+.peek-label{color:var(--muted);font-size:12.5px;margin-bottom:9px}
+.peek-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.peek-chip{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 15px;min-height:42px;
+  border-radius:999px;
+  background:var(--surface);
+  border:1.5px solid color-mix(in srgb,var(--player,var(--accent)) 50%,var(--line));
+  font-size:14.5px;font-weight:650;
+  max-width:100%;
+}
+.peek-chip::before{
+  content:"";flex:none;
+  width:11px;height:11px;border-radius:50%;
+  background:var(--player,var(--accent));
+}
+.peek-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.peek-chip:active{transform:scale(.96)}
 
 /* end-of-round answer */
 .answer{margin-top:auto;padding-top:28px;width:100%}
@@ -629,6 +653,10 @@ svg{width:24px;height:24px}
 body.is-playing .topbar,
 body.is-playing .start-dock{display:none}
 body.is-playing,body.is-playing .app{overflow:hidden}
+/* Pin the shell to the viewport while playing. Without this the app grows
+   with its content, so a big group pushes the bottom of the round-start
+   screen off-screen with nothing able to scroll it back. */
+body.is-playing .app{height:100dvh;min-height:0}
 body.is-playing .view-reveal{padding-top:calc(var(--safe-t) + 8px)}
 body.is-playing .view-done{padding-top:calc(var(--safe-t) + 16px)}
 

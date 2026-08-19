@@ -409,22 +409,38 @@
     return round ? round.order[round.index] : null;
   }
 
-  /* What the player in front of the phone should see on their card. */
-  function currentCard() {
-    var player = currentPlayer();
-    if (!player) return null;
+  /* What one player's card says. */
+  function cardFor(player) {
     var isImposter = !!round.imposters[player.id];
     return {
       player: player,
       isImposter: isImposter,
       word: isImposter ? null : round.word,
       category: round.category,
-      showCategory: !isImposter || state.settings.imposterSeesCategory,
-      seen: !!round.seen[player.id],
-      position: round.index + 1,
-      total: round.order.length,
-      isLast: round.index === round.order.length - 1
+      showCategory: !isImposter || state.settings.imposterSeesCategory
     };
+  }
+
+  /* What the player in front of the phone should see, plus where they are
+     in the pass. */
+  function currentCard() {
+    var player = currentPlayer();
+    if (!player) return null;
+    var card = cardFor(player);
+    card.seen = !!round.seen[player.id];
+    card.position = round.index + 1;
+    card.total = round.order.length;
+    card.isLast = round.index === round.order.length - 1;
+    return card;
+  }
+
+  /* The same card again for anyone who has forgotten theirs mid-round.
+     Looking does not touch the pass, so it can be done any number of
+     times without changing whose turn it is. */
+  function peekCard(playerId) {
+    var player = getPlayer(playerId);
+    if (!round || !player) return null;
+    return cardFor(player);
   }
 
   function markSeen() {
@@ -476,6 +492,7 @@
 
     canStart: canStart, startRound: startRound, currentRound: currentRound,
     endRound: endRound, currentPlayer: currentPlayer, currentCard: currentCard,
+    peekCard: peekCard,
     markSeen: markSeen, nextPlayer: nextPlayer, imposterNames: imposterNames,
 
     setSetting: setSetting,

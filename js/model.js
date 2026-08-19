@@ -1,0 +1,417 @@
+/* ============================================================
+   model.js — players, categories, storage and round dealing
+
+   The saved state is only the *setup* (players, categories,
+   settings). A round — the secret word and who the imposters are —
+   lives in memory only, so it never touches the disk and a reload
+   can never leak it.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  var STORAGE_KEY = 'imposter.v1';
+  var RECENT_MAX = 12;        // words held back from repeating, per category
+  var MAX_PLAYERS = 20;
+  var MAX_IMPOSTERS = 3;
+  var NAME_MAX = 18;
+
+  var BUILT_IN = global.ImposterWords.CATEGORIES;
+
+  var DEFAULT_CATEGORIES = ['animals', 'food', 'jobs', 'house'];
+
+  var state = null;
+  var round = null;
+
+  /* ============================================================
+     Random — crypto-backed, no modulo bias
+     ============================================================ */
+  function randInt(n) {
+    if (n <= 1) return 0;
+    var c = global.crypto;
+    if (c && c.getRandomValues) {
+      var limit = Math.floor(4294967296 / n) * n;
+      var buf = new Uint32Array(1);
+      for (var i = 0; i < 64; i++) {
+        c.getRandomValues(buf);
+        if (buf[0] < limit) return buf[0] % n;
+      }
+    }
+    return Math.floor(Math.random() * n);
+  }
+
+  function pick(list) { return list[randInt(list.length)]; }
+
+  function shuffle(list) {
+    var out = list.slice();
+    for (var i = out.length - 1; i > 0; i--) {
+      var j = randInt(i + 1);
+      var t = out[i]; out[i] = out[j]; out[j] = t;
+    }
+    return out;
+  }
+
+  function uid(prefix) {
+    return (prefix || 'x') + Date.now().toString(36) + randInt(1e6).toString(36);
+  }
+
+  /* ============================================================
+     Storage
+     ============================================================ */
+  function defaults() {
+    return {
+      players: [],
+      imposterCount: 1,
+      selected: DEFAULT_CATEGORIES.slice(),
+      custom: [],
+      recent: {},
+      settings: {
+        imposterSeesCategory: true,
+        haptics: true,
+        shuffleOrder: true,
+        keepAwake: true
+      }
+    };
+  }
+
+  function load() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) {}
+    state = defaults();
+    if (saved && typeof saved === 'object') {
+      if (Array.isArray(saved.players)) {
+        state.players = saved.players
+          .filter(function (p) { return p && p.name; })
+          .slice(0, MAX_PLAYERS)
+          .map(function (p) { return { id: p.id || uid('p'), name: cleanName(p.name) }; });
+      }
+      if (Array.isArray(saved.custom)) {
+        state.custom = saved.custom
+          .filter(function (c) { return c && c.name && Array.isArray(c.words); })
+          .map(function (c) {
+            return {
+              id: c.id || uid('c'),
+              emoji: c.emoji || '✏️',
+              name: String(c.name).slice(0, 24),
+              words: cleanWords(c.words),
+              custom: true
+            };
+          });
+      }
+      if (Array.isArray(saved.selected)) state.selected = saved.selected.slice();
+      if (saved.recent && typeof saved.recent === 'object') state.recent = saved.recent;
+      state.imposterCount = clampImposters(saved.imposterCount);
+      if (saved.settings) {
+        Object.keys(state.settings).forEach(function (k) {
+          if (typeof saved.settings[k] === 'boolean') state.settings[k] = saved.settings[k];
+        });
+      }
+    }
+    /* Drop selections pointing at categories that no longer exist. */
+    state.selected = state.selected.filter(function (id) { return !!getCategory(id); });
+    if (!state.selected.length) state.selected = DEFAULT_CATEGORIES.slice();
+    return state;
+  }
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function reset() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    state = defaults();
+    round = null;
+    return state;
+  }
+
+  /* ============================================================
+     Players
+     ============================================================ */
+  function cleanName(name) {
+    return String(name == null ? '' : name).replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+  }
+
+  function addPlayer(name) {
+    var clean = cleanName(name);
+    if (!clean) return { ok: false, reason: 'empty' };
+    if (state.players.length >= MAX_PLAYERS) return { ok: false, reason: 'full' };
+    var taken = state.players.some(function (p) {
+      return p.name.toLowerCase() === clean.toLowerCase();
+    });
+    if (taken) return { ok: false, reason: 'duplicate' };
+    var player = { id: uid('p'), name: clean };
+    state.players.push(player);
+    state.imposterCount = clampImposters(state.imposterCount);
+    save();
+    return { ok: true, player: player };
+  }
+
+  function removePlayer(id) {
+    state.players = state.players.filter(function (p) { return p.id !== id; });
+    state.imposterCount = clampImposters(state.imposterCount);
+    save();
+  }
+
+  function renamePlayer(id, name) {
+    var clean = cleanName(name);
+    if (!clean) return false;
+    var player = getPlayer(id);
+    if (!player) return false;
+    player.name = clean;
+    save();
+    return true;
+  }
+
+  function clearPlayers() {
+    state.players = [];
+    state.imposterCount = clampImposters(state.imposterCount);
+    save();
+  }
+
+  function getPlayer(id) {
+    for (var i = 0; i < state.players.length; i++) {
+      if (state.players[i].id === id) return state.players[i];
+    }
+    return null;
+  }
+
+  /* ============================================================
+     Imposters
+
+     Every round needs at least two people who share the word,
+     otherwise there is nothing to work out — so the imposters are
+     capped at players - 2.
+     ============================================================ */
+  function maxImposters() {
+    return Math.max(1, Math.min(MAX_IMPOSTERS, state.players.length - 2));
+  }
+
+  function clampImposters(n) {
+    var v = parseInt(n, 10);
+    if (!isFinite(v) || v < 1) v = 1;
+    return Math.min(v, maxImposters());
+  }
+
+  function setImposterCount(n) {
+    state.imposterCount = clampImposters(n);
+    save();
+    return state.imposterCount;
+  }
+
+  /* ============================================================
+     Categories
+     ============================================================ */
+  function allCategories() {
+    return BUILT_IN.concat(state.custom);
+  }
+
+  function getCategory(id) {
+    var all = allCategories();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === id) return all[i];
+    }
+    return null;
+  }
+
+  function isSelected(id) {
+    return state.selected.indexOf(id) !== -1;
+  }
+
+  function toggleCategory(id) {
+    var at = state.selected.indexOf(id);
+    if (at === -1) state.selected.push(id);
+    else state.selected.splice(at, 1);
+    save();
+    return isSelected(id);
+  }
+
+  function selectAllCategories(on) {
+    state.selected = on ? allCategories().map(function (c) { return c.id; }) : [];
+    save();
+  }
+
+  function selectedCategories() {
+    return state.selected.map(getCategory).filter(Boolean);
+  }
+
+  function wordCount() {
+    return selectedCategories().reduce(function (sum, c) { return sum + c.words.length; }, 0);
+  }
+
+  function cleanWords(list) {
+    var seen = {}, out = [];
+    (list || []).forEach(function (w) {
+      var clean = String(w == null ? '' : w).replace(/\s+/g, ' ').trim().slice(0, 40);
+      var key = clean.toLowerCase();
+      if (clean && !seen[key]) { seen[key] = 1; out.push(clean); }
+    });
+    return out;
+  }
+
+  function parseWords(text) {
+    return cleanWords(String(text || '').split(/[\n,]/));
+  }
+
+  function saveCustomCategory(data) {
+    var name = String(data.name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+    var words = cleanWords(data.words);
+    if (!name || words.length < 2) return null;
+    var emoji = String(data.emoji || '✏️').trim() || '✏️';
+    var existing = data.id ? getCategory(data.id) : null;
+
+    if (existing && existing.custom) {
+      existing.name = name;
+      existing.words = words;
+      existing.emoji = emoji;
+    } else {
+      existing = { id: uid('c'), emoji: emoji, name: name, words: words, custom: true };
+      state.custom.push(existing);
+      if (!isSelected(existing.id)) state.selected.push(existing.id);
+    }
+    save();
+    return existing;
+  }
+
+  function deleteCustomCategory(id) {
+    state.custom = state.custom.filter(function (c) { return c.id !== id; });
+    state.selected = state.selected.filter(function (s) { return s !== id; });
+    delete state.recent[id];
+    save();
+  }
+
+  /* ============================================================
+     Dealing a round
+
+     Words seen in the last few rounds of a category are held back
+     so the same one does not come round again immediately — unless
+     that would leave nothing to choose from.
+     ============================================================ */
+  function rememberWord(categoryId, word) {
+    var list = state.recent[categoryId] || [];
+    list = list.filter(function (w) { return w !== word; });
+    list.unshift(word);
+    state.recent[categoryId] = list.slice(0, RECENT_MAX);
+    save();
+  }
+
+  function pickWord(category) {
+    var recent = state.recent[category.id] || [];
+    var fresh = category.words.filter(function (w) { return recent.indexOf(w) === -1; });
+    return pick(fresh.length ? fresh : category.words);
+  }
+
+  function canStart() {
+    if (state.players.length < 3) return { ok: false, reason: 'Add at least 3 players' };
+    if (!selectedCategories().length) return { ok: false, reason: 'Pick at least one category' };
+    if (!wordCount()) return { ok: false, reason: 'Those categories have no words' };
+    return { ok: true };
+  }
+
+  function startRound() {
+    var check = canStart();
+    if (!check.ok) return null;
+
+    var category = pick(selectedCategories());
+    var word = pickWord(category);
+    rememberWord(category.id, word);
+
+    var count = clampImposters(state.imposterCount);
+    var imposters = {};
+    shuffle(state.players).slice(0, count).forEach(function (p) { imposters[p.id] = true; });
+
+    var order = state.settings.shuffleOrder
+      ? shuffle(state.players)
+      : state.players.slice();
+
+    round = {
+      order: order,
+      index: 0,
+      seen: {},
+      category: category,
+      word: word,
+      imposters: imposters,
+      imposterCount: count,
+      starter: pick(state.players)
+    };
+    return round;
+  }
+
+  function currentRound() { return round; }
+  function endRound() { round = null; }
+
+  function currentPlayer() {
+    return round ? round.order[round.index] : null;
+  }
+
+  /* What the player in front of the phone should see on their card. */
+  function currentCard() {
+    var player = currentPlayer();
+    if (!player) return null;
+    var isImposter = !!round.imposters[player.id];
+    return {
+      player: player,
+      isImposter: isImposter,
+      word: isImposter ? null : round.word,
+      category: round.category,
+      showCategory: !isImposter || state.settings.imposterSeesCategory,
+      seen: !!round.seen[player.id],
+      position: round.index + 1,
+      total: round.order.length,
+      isLast: round.index === round.order.length - 1
+    };
+  }
+
+  function markSeen() {
+    var player = currentPlayer();
+    if (player) round.seen[player.id] = true;
+  }
+
+  function nextPlayer() {
+    if (!round || round.index >= round.order.length - 1) return false;
+    round.index++;
+    return true;
+  }
+
+  function imposterNames() {
+    if (!round) return [];
+    return state.players
+      .filter(function (p) { return round.imposters[p.id]; })
+      .map(function (p) { return p.name; });
+  }
+
+  /* ============================================================
+     Settings
+     ============================================================ */
+  function setSetting(key, value) {
+    if (!(key in state.settings)) return;
+    state.settings[key] = !!value;
+    save();
+  }
+
+  global.ImposterModel = {
+    MAX_PLAYERS: MAX_PLAYERS,
+    MAX_IMPOSTERS: MAX_IMPOSTERS,
+    NAME_MAX: NAME_MAX,
+
+    load: load, save: save, reset: reset,
+    state: function () { return state; },
+
+    addPlayer: addPlayer, removePlayer: removePlayer, renamePlayer: renamePlayer,
+    clearPlayers: clearPlayers, getPlayer: getPlayer,
+
+    maxImposters: maxImposters, setImposterCount: setImposterCount,
+
+    allCategories: allCategories, getCategory: getCategory, isSelected: isSelected,
+    toggleCategory: toggleCategory, selectAllCategories: selectAllCategories,
+    selectedCategories: selectedCategories, wordCount: wordCount,
+    parseWords: parseWords, saveCustomCategory: saveCustomCategory,
+    deleteCustomCategory: deleteCustomCategory,
+
+    canStart: canStart, startRound: startRound, currentRound: currentRound,
+    endRound: endRound, currentPlayer: currentPlayer, currentCard: currentCard,
+    markSeen: markSeen, nextPlayer: nextPlayer, imposterNames: imposterNames,
+
+    setSetting: setSetting,
+    shuffle: shuffle, pick: pick, randInt: randInt
+  };
+
+})(this);

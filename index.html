@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+<title>Imposter — the party word game</title>
+<meta name="description" content="Pass one phone around. Everyone sees the secret word — except the imposter." />
+<meta name="theme-color" content="#12121a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Imposter" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar" id="topbar">
+    <h1 class="brand"><span class="brand-mask" aria-hidden="true"></span>Imposter</h1>
+    <button class="icon-btn" id="btn-settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-1.8-1L14.9 3H9.1l-.4 2.6a7.6 7.6 0 0 0-1.8 1l-2.3-1-2 3.4L4.6 11a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.3-1c.55.42 1.16.76 1.8 1l.4 2.6h5.8l.4-2.6c.64-.24 1.25-.58 1.8-1l2.3 1 2-3.4-2-1.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    </button>
+  </header>
+
+  <main class="views">
+
+    <!-- ============ SETUP ============ -->
+    <section class="view view-setup is-active" id="view-setup" aria-label="Game setup">
+
+      <!-- players -->
+      <section class="card">
+        <div class="card-head">
+          <h2>Players</h2>
+          <span class="pill" id="player-count">0</span>
+        </div>
+        <form class="add-row" id="form-player" autocomplete="off">
+          <input class="input" id="input-player" type="text" inputmode="text"
+                 placeholder="Add a player…" maxlength="18"
+                 autocapitalize="words" autocorrect="off" spellcheck="false"
+                 enterkeyhint="done" aria-label="Player name" />
+          <button class="btn btn-add" type="submit" id="btn-add-player" aria-label="Add player">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+          </button>
+        </form>
+        <div class="players" id="players"></div>
+        <p class="empty-note" id="players-empty">Add everyone playing — at least 3.</p>
+        <button class="link-btn" id="btn-clear-players" hidden>Remove all players</button>
+      </section>
+
+      <!-- imposters -->
+      <section class="card">
+        <div class="card-head">
+          <h2>Imposters</h2>
+        </div>
+        <p class="card-sub">How many players get no word at all.</p>
+        <div class="segmented" id="imposter-seg" role="group" aria-label="Number of imposters">
+          <button class="seg" data-count="1" aria-pressed="true">1</button>
+          <button class="seg" data-count="2" aria-pressed="false">2</button>
+          <button class="seg" data-count="3" aria-pressed="false">3</button>
+        </div>
+        <p class="hint" id="imposter-hint" hidden></p>
+      </section>
+
+      <!-- categories -->
+      <section class="card">
+        <div class="card-head">
+          <h2>Categories</h2>
+          <span class="pill" id="category-count">0</span>
+        </div>
+        <p class="card-sub">The secret word comes from one of these.</p>
+        <div class="chips" id="categories"></div>
+        <div class="card-actions">
+          <button class="link-btn" id="btn-select-all">Select all</button>
+          <button class="link-btn" id="btn-select-none">Clear</button>
+          <button class="link-btn link-accent" id="btn-new-category">＋ Your own</button>
+        </div>
+      </section>
+
+      <p class="how-to">
+        Everyone sees the same secret word — except the imposter. Take turns saying
+        one word about it, then work out who is faking.
+      </p>
+    </section>
+
+    <!-- ============ REVEAL ============ -->
+    <section class="view view-reveal" id="view-reveal" aria-label="Pass the phone" hidden>
+      <div class="reveal-head">
+        <button class="icon-btn icon-btn-sm" id="btn-quit" aria-label="Quit round">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="progress" id="progress" aria-hidden="true"></div>
+        <span class="progress-text" id="progress-text">1 / 3</span>
+      </div>
+
+      <div class="card-stage">
+        <button class="reveal-card" id="card" aria-describedby="card-hint">
+          <!-- face down -->
+          <span class="card-front">
+            <span class="card-eyebrow" id="card-eyebrow">Pass to</span>
+            <span class="card-name" id="card-name">Player</span>
+            <span class="card-hold" id="card-hint">
+              <span class="card-hold-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M9 11V6.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V12m0-1a1.5 1.5 0 0 1 3 0v4.5a5.5 5.5 0 0 1-5.5 5.5h-1a5.5 5.5 0 0 1-5.5-5.5V13a1.5 1.5 0 0 1 3 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              Hold to reveal
+            </span>
+            <span class="card-seen" id="card-seen">Seen — pass it on</span>
+            <span class="hold-bar" aria-hidden="true"><i></i></span>
+          </span>
+
+          <!-- face up -->
+          <span class="card-back" id="card-back" aria-hidden="true">
+            <span class="back-label" id="back-label">Secret word</span>
+            <span class="back-word" id="back-word">Word</span>
+            <span class="back-note" id="back-note"></span>
+          </span>
+        </button>
+      </div>
+
+      <div class="reveal-dock">
+        <button class="btn btn-primary btn-lg" id="btn-next" disabled>Hold the card first</button>
+      </div>
+    </section>
+
+    <!-- ============ ROUND START ============ -->
+    <section class="view view-done" id="view-done" aria-label="Start the round" hidden>
+      <div class="done-inner">
+        <p class="done-eyebrow">Everyone's seen their card</p>
+        <div class="starter" id="starter">
+          <span class="starter-name" id="starter-name">Alex</span>
+          <span class="starter-tag">starts</span>
+        </div>
+        <p class="done-sub" id="done-sub">Say one word about the secret word, then go round the group.</p>
+
+        <div class="done-actions">
+          <button class="btn btn-primary btn-lg" id="btn-again">New round</button>
+          <button class="btn btn-ghost" id="btn-setup">Change setup</button>
+        </div>
+
+        <div class="answer">
+          <p class="answer-label">Round over? Hold to see the answer.</p>
+          <button class="answer-card" id="answer-card">
+            <span class="answer-front">Hold to reveal the answer</span>
+            <span class="answer-back" id="answer-back" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ START DOCK (setup only) ============ -->
+  <div class="start-dock" id="start-dock">
+    <p class="start-reason" id="start-reason" hidden></p>
+    <button class="btn btn-primary btn-lg" id="btn-start">Start game</button>
+  </div>
+
+</div>
+
+<!-- ============ SETTINGS SHEET ============ -->
+<div class="scrim" id="scrim" hidden></div>
+
+<section class="sheet" id="sheet-settings" hidden aria-label="Settings">
+  <div class="sheet-head">
+    <h2>Settings</h2>
+    <button class="icon-btn" data-close-sheet aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <label class="toggle">
+      <span>
+        <b>Imposter sees the category</b>
+        <i>Their card shows the category name so they can bluff.</i>
+      </span>
+      <input type="checkbox" id="set-cat" />
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+    <label class="toggle">
+      <span>
+        <b>Shuffle the pass order</b>
+        <i>Cards come up in a random order each round.</i>
+      </span>
+      <input type="checkbox" id="set-shuffle" />
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+    <label class="toggle">
+      <span>
+        <b>Vibrate on reveal</b>
+        <i>A short buzz when a card opens.</i>
+      </span>
+      <input type="checkbox" id="set-haptics" />
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+    <label class="toggle">
+      <span>
+        <b>Keep the screen awake</b>
+        <i>Stops the phone locking while cards are passed around.</i>
+      </span>
+      <input type="checkbox" id="set-awake" />
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+
+    <div class="sheet-section">
+      <h3>How to play</h3>
+      <ol class="rules">
+        <li>Add everyone's name, choose how many imposters and pick your categories.</li>
+        <li>Pass the phone around. Each player holds their card to see the secret word — or that they're the imposter.</li>
+        <li>The app picks who starts. Go round the group, each saying <b>one word</b> about the secret word.</li>
+        <li>Imposters have to blend in without knowing the word. After a round or two, everyone votes on who's faking.</li>
+      </ol>
+    </div>
+
+    <button class="btn btn-danger" id="btn-reset">Reset everything</button>
+    <p class="version" id="version"></p>
+  </div>
+</section>
+
+<!-- ============ CATEGORY SHEET ============ -->
+<section class="sheet" id="sheet-category" hidden aria-label="Your own category">
+  <div class="sheet-head">
+    <h2 id="cat-sheet-title">New category</h2>
+    <button class="icon-btn" data-close-sheet aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <label class="field">
+      <span class="field-label">Name</span>
+      <div class="field-row">
+        <button class="emoji-btn" id="cat-emoji" type="button" aria-label="Change icon">✏️</button>
+        <input class="input" id="cat-name" type="text" maxlength="24" placeholder="Office in-jokes"
+               autocapitalize="words" autocorrect="off" />
+      </div>
+    </label>
+    <label class="field">
+      <span class="field-label">Words <i id="cat-word-count">0 words</i></span>
+      <textarea class="input textarea" id="cat-words" rows="8" spellcheck="false"
+                placeholder="One per line, or separated by commas.&#10;&#10;Stapler&#10;The coffee machine&#10;Monday standup"></textarea>
+    </label>
+    <p class="hint">At least 2 words. More words means fewer repeats.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-primary btn-lg" id="cat-save">Save category</button>
+      <button class="btn btn-danger" id="cat-delete" hidden>Delete</button>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="js/words.js"></script>
+<script src="js/model.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

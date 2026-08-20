@@ -86,13 +86,31 @@ and every phone shows its own card, held the same way as ever. Your card stays o
 so forgetting your word is a non-issue. The host can deal again with **New
 round** without anybody rejoining.
 
+**Voting.** When the talking is done the host taps **Start the vote**, and every
+phone holding a card gets a ballot: everyone else's name, tap the one you think
+is faking it. You can change your mind until the last ballot is in; nothing is
+shown while people are still deciding, only a count of how many have voted. Once
+they are all in, every phone shows the same tally at the same moment — who got
+how many, and who voted for them.
+
+The host chooses **1, 2 or 3 rounds of voting** in the lobby, under **Change**.
+After each tally the host can run the next one, or go straight to the answer —
+the rounds are what is available, not what is compulsory. If somebody puts their
+phone down mid-vote, **Close the vote now** tallies whatever arrived rather than
+waiting for a ballot that is never coming.
+
+Somebody who joined halfway through a round does not get a ballot, and is not
+counted in the total, so they cannot leave a tally one short for ever. They vote
+in the next round like everybody else.
+
 **Settling it.** When the group has voted, the host taps **Reveal the imposter**
 and every phone in the room shows the same thing at the same moment: the word,
 the category it came from, and who was faking it. Nobody has to take the host's
 word for it, and nobody has to lean over to see a screen. From there the host
 picks **New round** or **End game**, and everybody else is simply carried along.
 Names are worked out when the cards are dealt rather than when the answer is
-called, so somebody who walks off mid-round still shows up in the answer.
+called, so somebody who walks off mid-round still shows up in the answer. If the
+room voted, the answer says what it decided and whether that was right.
 
 **The room stays open all game.** Somebody arriving in the middle of a round
 joins with the same code as everyone else, and is told a round is under way and
@@ -122,6 +140,13 @@ the room in plain text, where anyone who already knows the four-letter code coul
 read them. That is a round that is already over, and dealing again wipes them —
 but if you would rather it never left the host's phone at all, don't use the
 button.
+
+Ballots are the same kind of thing. The app shows nobody anything until the last
+one is in, but the votes themselves sit in the room in the open, so somebody with
+the code and a browser console could see who voted for whom before the tally
+appears. They are wiped when the next round is dealt. This is a party game and
+that seemed a fair trade for everyone reaching the same tally without waiting on
+the host's phone; it is not a secret ballot.
 
 **Worth knowing.** Rooms need every phone online; pass-the-phone still needs
 nothing, so it is the better bet on bad wifi. Reloading the page drops you back
@@ -188,18 +213,30 @@ dismissed by tapping outside it or pressing Escape.
 
 **Settings**
 
+- **Appearance** — **Auto**, **Light** or **Dark**, on every phone, whether it is
+  hosting or not. Auto follows the phone. The choice is painted before the first
+  frame rather than applied after it, so launching does not flash the other one.
 - **Imposter sees the category** — their card shows the category name so they can
   bluff plausibly. Switch it off for a harder game.
 - **Shuffle the pass order** — off by default, so cards follow the order you set
   in the players list. Turn it on to have them come up at random each round
   instead; the players list says so while it is on, with a one-tap way back.
-- **Vibrate on reveal**, **keep the screen awake**, and **reset everything**.
+- **Keep the screen awake**, and **reset everything**.
+
+Both of the middle two change how a round is dealt, and only the phone doing the
+dealing acts on them — so in a room they are the host's, and they are not shown
+on anybody else's phone rather than sitting there wired to nothing. Shuffling the
+pass order has no meaning in a room at all, so it goes away for everyone there.
+
+There is no vibrate switch. Android phones buzz on a reveal, iPhones ignore the
+request entirely, and a setting for something only half the room can do is worse
+than no setting.
 
 ## Layout
 
 ```
 index.html              markup for the screens and the sheets
-css/styles.css          mobile-first styles, light + dark via prefers-color-scheme
+css/styles.css          mobile-first styles; dark by default, light by system or by choice
 js/words.js             the 15 built-in categories
 js/model.js             players, categories, storage and dealing a round
 js/app.js               screens, the hold-to-reveal card and the editors

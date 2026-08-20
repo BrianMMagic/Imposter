@@ -23,8 +23,11 @@
   --mask-art:url('../icons/mask.svg');
 }
 
+/* Dark is the base. Light arrives either because the phone asks for it and
+   nobody has said otherwise, or because somebody picked it in Settings —
+   the same handful of values either way. */
 @media (prefers-color-scheme: light){
-  :root{
+  :root:not([data-theme="dark"]){
     --bg:#f4f5fb;
     --bg-2:#ffffff;
     --surface:#ffffff;
@@ -34,6 +37,16 @@
     --muted:#666f92;
     --shadow:0 8px 24px rgba(30,35,70,.12);
   }
+}
+:root[data-theme="light"]{
+  --bg:#f4f5fb;
+  --bg-2:#ffffff;
+  --surface:#ffffff;
+  --surface-2:#eef0f8;
+  --line:#dfe3f2;
+  --text:#171a26;
+  --muted:#666f92;
+  --shadow:0 8px 24px rgba(30,35,70,.12);
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -448,6 +461,7 @@ body[data-mode="room"] #card-imposters{display:none}
 .room-actions{display:flex;flex-direction:column;gap:10px}
 .room-actions[hidden]{display:none}
 .room-actions-row{display:flex;gap:10px}
+.room-actions-row[hidden]{display:none}
 .room-actions-row .btn{flex:1}
 .room-wait{text-align:center;color:var(--muted);font-size:13.5px;padding-bottom:6px}
 .room-wait[hidden]{display:none}
@@ -680,6 +694,89 @@ body[data-mode="room"] #card-imposters{display:none}
 .answer-who{color:var(--danger)}
 
 /* ============================================================
+   VOTING
+   ============================================================ */
+.view-vote{
+  flex:1;min-height:0;display:flex;flex-direction:column;
+  padding:12px 16px calc(var(--safe-b) + 16px);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.vote-head{text-align:center;padding:4px 0 14px}
+.vote-title{font-size:23px;font-weight:820;letter-spacing:-.02em;margin-top:4px}
+.vote-sub{color:var(--muted);font-size:13.5px;line-height:1.5;margin-top:7px}
+.vote-list{display:flex;flex-direction:column;gap:9px}
+.vote-list[hidden]{display:none}
+.vote-option{
+  display:flex;align-items:center;gap:12px;
+  width:100%;min-height:var(--tap);padding:12px 16px;
+  border-radius:16px;
+  background:var(--surface);
+  border:1.5px solid color-mix(in srgb,var(--player,var(--accent)) 34%,var(--line));
+  font-size:16px;font-weight:700;text-align:left;
+}
+.vote-option::before{
+  content:"";flex:none;width:13px;height:13px;border-radius:50%;
+  background:var(--player,var(--accent));
+}
+.vote-option span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vote-option:active{transform:scale(.985)}
+.vote-option.is-mine{
+  border-color:var(--player,var(--accent));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--player,var(--accent)) 26%,transparent);
+  background:
+    linear-gradient(color-mix(in srgb,var(--player,var(--accent)) 12%,transparent),
+                    color-mix(in srgb,var(--player,var(--accent)) 12%,transparent)),
+    var(--surface);
+}
+.vote-option .vote-tick{flex:none;width:20px;height:20px;color:var(--player,var(--accent));opacity:0}
+.vote-option.is-mine .vote-tick{opacity:1}
+.vote-status{
+  text-align:center;color:var(--muted);font-size:13.5px;line-height:1.5;
+  margin:14px 0 4px;
+}
+.vote-dock{margin-top:auto;padding-top:14px}
+
+/* ---------- the tally ---------- */
+.tally{display:flex;flex-direction:column;gap:10px}
+.tally[hidden]{display:none}
+.tally-row{
+  padding:12px 15px;border-radius:16px;
+  background:var(--surface);
+  border:1.5px solid color-mix(in srgb,var(--player,var(--accent)) 30%,var(--line));
+}
+.tally-row.is-top{
+  border-color:color-mix(in srgb,var(--danger) 55%,var(--line));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--danger) 16%,transparent);
+}
+.tally-head{display:flex;align-items:center;gap:10px}
+.tally-head::before{
+  content:"";flex:none;width:12px;height:12px;border-radius:50%;
+  background:var(--player,var(--accent));
+}
+.tally-name{flex:1;font-size:16px;font-weight:750;overflow-wrap:anywhere}
+.tally-count{
+  flex:none;min-width:30px;height:26px;padding:0 9px;border-radius:999px;
+  display:grid;place-items:center;
+  background:var(--surface-2);border:1px solid var(--line);
+  font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.tally-row.is-top .tally-count{
+  background:color-mix(in srgb,var(--danger) 18%,transparent);
+  border-color:color-mix(in srgb,var(--danger) 40%,var(--line));
+  color:var(--danger);
+}
+.tally-bar{
+  height:5px;border-radius:999px;margin-top:9px;
+  background:var(--surface-2);overflow:hidden;
+}
+.tally-bar i{
+  display:block;height:100%;border-radius:999px;
+  background:var(--player,var(--accent));
+  transition:width .3s cubic-bezier(.2,.9,.3,1);
+}
+.tally-voters{color:var(--muted);font-size:12.5px;margin-top:8px;line-height:1.45}
+
+/* ============================================================
    THE ANSWER, CALLED BY THE HOST
 
    Nothing is held open here: the host has decided the table should
@@ -707,6 +804,14 @@ body[data-mode="room"] #card-imposters{display:none}
   color:var(--danger);overflow-wrap:anywhere;max-width:100%;
   animation:rise .4s .06s backwards cubic-bezier(.2,.9,.3,1.2);
 }
+.verdict-vote{
+  margin-top:12px;font-size:15px;font-weight:700;line-height:1.5;
+  color:var(--muted);max-width:22em;
+}
+.verdict-vote[hidden]{display:none}
+.verdict-vote b{color:var(--text)}
+.verdict-vote .got-it{color:var(--good)}
+.verdict-vote .missed-it{color:var(--danger)}
 .verdict-room{margin-top:auto;padding-top:26px;width:100%}
 .verdict-room .lobby-players{justify-content:center}
 .verdict-code{
@@ -760,6 +865,7 @@ body[data-mode="room"] #card-imposters{display:none}
   border-radius:var(--radius-sm);padding:12px 14px;
   cursor:pointer;
 }
+.toggle[hidden]{display:none}
 .toggle > span:first-child{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .toggle b{font-size:15px;font-weight:650}
 .toggle i{color:var(--muted);font-size:12.5px;font-style:normal;line-height:1.4}
@@ -875,6 +981,7 @@ body.is-playing .app{height:100dvh;min-height:0}
 body.is-playing .view-reveal{padding-top:calc(var(--safe-t) + 8px)}
 body.is-playing .view-done{padding-top:calc(var(--safe-t) + 16px)}
 body.is-playing .view-verdict{padding-top:calc(var(--safe-t) + 16px)}
+body.is-playing .view-vote{padding-top:calc(var(--safe-t) + 12px)}
 
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}

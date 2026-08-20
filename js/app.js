@@ -49,10 +49,51 @@
     toastTimer = setTimeout(function () { t.hidden = true; }, 1800);
   }
 
+  /* Android phones do this; iPhones ignore it entirely. Nothing is offered
+     to switch it off, because on the phones where it would matter there is
+     nothing to switch off. */
   function buzz(pattern) {
-    if (!M.state().settings.haptics) return;
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
+
+  /* ============================================================
+     Appearance
+
+     Dark unless the phone says light, until somebody picks one —
+     then that, on this phone, for good.
+     ============================================================ */
+  var THEME_COLORS = { dark: '#12121a', light: '#f4f5fb' };
+
+  function applyTheme() {
+    var choice = M.state().theme;
+    var root = document.documentElement;
+
+    if (choice === 'auto') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', choice);
+
+    var showing = choice === 'auto'
+      ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+      : choice;
+    var tag = document.querySelector('meta[name="theme-color"]');
+    if (tag) tag.setAttribute('content', THEME_COLORS[showing]);
+
+    document.querySelectorAll('#theme-seg .seg').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.theme === choice));
+    });
+  }
+
+  $('theme-seg').addEventListener('click', function (e) {
+    var btn = e.target.closest('.seg');
+    if (!btn) return;
+    M.setTheme(btn.dataset.theme);
+    applyTheme();
+    buzz(6);
+  });
+
+  /* on auto, follow the phone if it changes under us */
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', function () {
+    if (M.state().theme === 'auto') applyTheme();
+  });
 
   /* ============================================================
      Dialog
@@ -141,8 +182,8 @@
   /* ============================================================
      Navigation
      ============================================================ */
-  var VIEWS = ['setup', 'join', 'lobby', 'reveal', 'done', 'verdict'];
-  var PLAYING = ['reveal', 'done', 'verdict'];
+  var VIEWS = ['setup', 'join', 'lobby', 'reveal', 'done', 'verdict', 'vote'];
+  var PLAYING = ['reveal', 'done', 'verdict', 'vote'];
 
   function showView(name) {
     view = name;
@@ -851,7 +892,6 @@
   var SETTING_IDS = {
     'set-cat': 'imposterSeesCategory',
     'set-shuffle': 'shuffleOrder',
-    'set-haptics': 'haptics',
     'set-awake': 'keepAwake'
   };
 
@@ -864,11 +904,24 @@
     });
   });
 
+  /* Both of these change how a round is dealt, and only the phone that
+     deals it acts on them — so in a room they are the host's, and on
+     anybody else's phone they would be two switches wired to nothing.
+     Shuffling the pass order has no meaning in a room at all. */
+  function renderSettingsScope() {
+    var deals = !room || room.isHost;
+    $('row-set-cat').hidden = !deals;
+    $('row-set-shuffle').hidden = !!room;
+    $('settings-game').hidden = $('row-set-cat').hidden && $('row-set-shuffle').hidden;
+  }
+
   $('btn-settings').addEventListener('click', function () {
     var s = M.state();
     Object.keys(SETTING_IDS).forEach(function (id) {
       $(id).checked = s.settings[SETTING_IDS[id]];
     });
+    applyTheme();
+    renderSettingsScope();
     openSheet('sheet-settings');
   });
 
@@ -881,7 +934,9 @@
       if (!yes) return;
       M.reset();
       closeSheets();
+      applyTheme();
       renderAll();
+      renderVoteRounds();
       $('input-host-name').value = '';
       showView('setup');
       toast('Everything reset');
@@ -1119,10 +1174,33 @@
     $('lobby-hint').hidden = !host;
     $('room-actions').hidden = !host;
     $('verdict-actions').hidden = !host;
+    $('vote-actions').hidden = !host;
     $('room-wait').hidden = host;
     $('verdict-wait').hidden = host;
     $('verdict-guest').hidden = host;
     $('room-roster').hidden = !host || !room || !room.dealtWith;
+
+    /* The card screen only offers a vote while there is one left to run. */
+    var planned = (room && room.votesPlanned) || M.state().voteRounds;
+    var used = (room && room.vote) || 0;
+    $('btn-room-vote').hidden = used >= planned;
+    $('btn-room-vote').textContent = used ? 'Vote again' : 'Start the vote';
+    $('btn-room-reveal').className = 'btn ' + (used >= planned ? 'btn-primary' : 'btn-ghost');
+
+    /* On the vote screen, what the host is offered depends on whether the
+       ballots are all in — there is nothing to move on to until they are,
+       and until then everybody else is simply waiting for a phone to ring. */
+    var voting = !!room && !!room.vote;
+    var done = voting && voteDone();
+    $('vote-wait').hidden = host || !voting || !done;
+    if (!host || !voting) return;
+
+    $('btn-vote-next').hidden = !done || room.vote >= room.votesPlanned;
+    $('btn-vote-reveal').hidden = !done;
+    $('btn-vote-again').hidden = !done;
+    $('btn-vote-end').hidden = !done;
+    $('btn-vote-close').hidden = done;
+    document.querySelector('#vote-actions .room-actions-row').hidden = !done;
   }
 
   function enterRoom() {
@@ -1150,9 +1228,16 @@
     if (meta.phase === 'revealed') {
       room.round = meta.round;
       showVerdict(meta);
+    } else if (meta.phase === 'voting') {
+      room.round = meta.round;
+      enterVoting(meta);
     } else if (meta.phase === 'dealt' && meta.round !== room.round) {
       room.round = meta.round;
       room.starter = meta.starter;
+      room.votesPlanned = meta.votesPlanned || 1;
+      room.vote = 0;
+      room.voteClosed = null;
+      room.voters = null;
       collectCard();
     } else if (meta.phase === 'lobby' && room.round) {
       room.round = 0;
@@ -1275,18 +1360,37 @@
     renderLobbySummary();
   });
 
+  function renderVoteRounds() {
+    var chosen = M.state().voteRounds;
+    document.querySelectorAll('#vote-seg .seg').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', String(parseInt(btn.dataset.votes, 10) === chosen));
+    });
+  }
+
+  $('vote-seg').addEventListener('click', function (e) {
+    var btn = e.target.closest('.seg');
+    if (!btn) return;
+    M.setVoteRounds(btn.dataset.votes);
+    buzz(8);
+    renderVoteRounds();
+    renderLobbySummary();
+  });
+
   function renderLobbySummary() {
     if (!room || !room.isHost) return;
     var count = Math.min(M.state().imposterCount, Math.max(1, roomImposterCap()));
     var cats = M.selectedCategories().length;
+    var votes = M.state().voteRounds;
     $('lobby-summary').textContent =
       count + (count === 1 ? ' imposter' : ' imposters') + ' · ' +
       cats + (cats === 1 ? ' category' : ' categories') + ' · ' +
-      M.wordCount() + ' words';
+      M.wordCount() + ' words · ' +
+      votes + (votes === 1 ? ' vote' : ' votes');
   }
 
   $('btn-lobby-edit').addEventListener('click', function () {
     renderRoomImposters();
+    renderVoteRounds();
     renderCategories();
     openSheet('sheet-game');
   });
@@ -1339,11 +1443,13 @@
       .map(function (p) { return p.name; });
     room.deal = deal;
     room.dealtWith = room.roster.length;
+    room.votesPlanned = M.state().voteRounds;
 
     R.deal(room.code, {
       number: number,
       starterName: deal.starter.name,
-      imposterCount: deal.imposterCount
+      imposterCount: deal.imposterCount,
+      votesPlanned: M.state().voteRounds
     }, function (player) {
       var isImposter = !!deal.imposters[player.id];
       return {
@@ -1361,6 +1467,252 @@
         btn.textContent = label;
       });
   }
+
+  /* ============================================================
+     Voting
+
+     The host opens a vote; every phone that was dealt a card gets a
+     ballot. Ballots go up under the round they belong to, and every
+     phone works out the tally for itself once they are all in — so
+     nothing waits on the host's phone being awake, and everyone sees
+     the same result at the same time.
+
+     Who is entitled to vote is whoever holds a card, not whoever is in
+     the room, so somebody who arrived halfway through cannot leave a
+     tally one ballot short for ever.
+     ============================================================ */
+  $('btn-room-vote').addEventListener('click', function () { openVote(1); });
+  $('btn-vote-next').addEventListener('click', function () { openVote((room && room.vote || 0) + 1); });
+
+  function openVote(n) {
+    if (!room || !room.isHost) return;
+    var planned = room.votesPlanned || M.state().voteRounds;
+    if (n > planned) return;
+
+    var btn = n > 1 ? $('btn-vote-next') : $('btn-room-vote');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Opening…';
+
+    R.startVote(room.code, n)
+      .then(function () { room.voteRev = null; })
+      .catch(roomTrouble)
+      .then(function () { btn.disabled = false; btn.textContent = label; });
+  }
+
+  /* Everyone lands here when the phase turns to voting. */
+  function enterVoting(meta) {
+    /* a card is the ticket; somebody still waiting for the next round
+       neither votes nor holds one up */
+    if (room.waiting) { showView('lobby'); renderLobby(); return; }
+
+    var opened = room.vote !== meta.vote;
+    room.vote = meta.vote;
+    room.votesPlanned = meta.votesPlanned || 1;
+    room.voteClosed = meta.voteClosed == null ? null : meta.voteClosed;
+    if (opened) { room.myVote = null; room.cast = {}; }
+
+    knowTheVoters().then(function () {
+      return R.votes(room.code, room.vote);
+    }).then(function (cast) {
+      if (!room || room.vote !== meta.vote) return;    /* moved on while we asked */
+      room.cast = cast;
+      /* Your own ballot is whatever you last tapped, even if a poll landed
+         while the write was still on its way; everyone else's comes from
+         the database. */
+      if (room.myVote == null) room.myVote = cast[room.playerId] || null;
+      else if (!voteDone()) room.cast[room.playerId] = room.myVote;
+      showView('vote');
+      renderVote(opened);
+    }).catch(function (err) {
+      $('vote-status').textContent = friendlyTrouble(err);
+    });
+  }
+
+  function knowTheVoters() {
+    if (room.voters && room.votersRound === room.round) return Promise.resolve();
+    return R.dealtIds(room.code).then(function (ids) {
+      if (!room) return;
+      room.voters = ids;
+      room.votersRound = room.round;
+    });
+  }
+
+  function isVoter(id) { return (room.voters || []).indexOf(id) !== -1; }
+
+  function ballotsIn() { return Object.keys(room.cast || {}).length; }
+
+  function voteDone() {
+    if (room.voteClosed === room.vote) return true;      /* the host called time */
+    return room.voters && room.voters.length > 0 && ballotsIn() >= room.voters.length;
+  }
+
+  function nameOf(id) {
+    for (var i = 0; i < room.roster.length; i++) {
+      if (room.roster[i].id === id) return room.roster[i].name;
+    }
+    return 'Somebody who left';
+  }
+
+  function colorOf(id) {
+    for (var i = 0; i < room.roster.length; i++) {
+      if (room.roster[i].id === id) return room.roster[i].color;
+    }
+    return null;
+  }
+
+  /* targetId -> the ids that picked them, biggest first */
+  function tallyOf(cast) {
+    var by = {};
+    Object.keys(cast).forEach(function (voter) {
+      var target = cast[voter];
+      (by[target] = by[target] || []).push(voter);
+    });
+    return Object.keys(by)
+      .map(function (id) { return { id: id, voters: by[id] }; })
+      .sort(function (a, b) { return b.voters.length - a.voters.length; });
+  }
+
+  /* Everyone the vote landed hardest on — more than one if it was a tie. */
+  function topOf(rows) {
+    if (!rows.length) return { ids: [], count: 0 };
+    var most = rows[0].voters.length;
+    return {
+      ids: rows.filter(function (r) { return r.voters.length === most; })
+               .map(function (r) { return r.id; }),
+      count: most
+    };
+  }
+
+  function renderVote(opened) {
+    var done = voteDone();
+    var total = (room.voters || []).length;
+
+    $('vote-eyebrow').textContent = 'Vote ' + room.vote + ' of ' + room.votesPlanned;
+    $('vote-title').textContent = done ? 'The votes are in' : 'Who is the imposter?';
+
+    $('vote-list').hidden = done;
+    $('tally').hidden = !done;
+
+    if (done) renderTally(); else renderBallot();
+
+    if (done) {
+      var top = topOf(tallyOf(room.cast));
+      $('vote-sub').textContent = '';
+      $('vote-status').textContent = top.ids.length === 1
+        ? 'The room says ' + nameOf(top.ids[0]) + '.'
+        : 'The room could not agree.';
+    } else if (room.myVote) {
+      $('vote-sub').textContent = 'You can change your mind until everyone is in.';
+      $('vote-status').textContent = ballotsIn() + ' of ' + total + ' voted — waiting for the rest…';
+    } else {
+      $('vote-sub').textContent = 'Tap the name you think is faking it.';
+      $('vote-status').textContent = ballotsIn() + ' of ' + total + ' voted.';
+    }
+
+    applyHostControls();
+    if (opened) buzz([10, 50, 10]);
+  }
+
+  function renderBallot() {
+    var list = $('vote-list');
+    list.innerHTML = '';
+
+    room.roster.forEach(function (p) {
+      /* only the people in this round, and never yourself */
+      if (!isVoter(p.id) || p.id === room.playerId) return;
+
+      var option = el('button', 'vote-option');
+      option.type = 'button';
+      option.style.setProperty('--player', p.color);
+      if (room.myVote === p.id) option.classList.add('is-mine');
+      option.setAttribute('aria-pressed', String(room.myVote === p.id));
+      option.appendChild(el('span', null, p.name));
+
+      var tick = icon('M5 13l4 4L19 7', '2.6');
+      tick.setAttribute('class', 'vote-tick');
+      option.appendChild(tick);
+
+      option.addEventListener('click', function () { cast(p.id); });
+      list.appendChild(option);
+    });
+  }
+
+  function cast(targetId) {
+    if (!room || voteDone() || room.myVote === targetId) return;
+    room.myVote = targetId;
+    room.cast[room.playerId] = targetId;      /* show it at once, confirm after */
+    buzz(12);
+    renderVote(false);
+
+    /* Changing your mind quickly fires two writes at the same key, and
+       nothing says they arrive in the order they were sent — the earlier
+       one landing last would quietly put the vote back. Chaining them
+       means the last tap is the last write. */
+    var mine = room;
+    mine.voteQueue = (mine.voteQueue || Promise.resolve()).then(function () {
+      if (room !== mine || room.myVote !== targetId) return;
+      return R.castVote(room.code, room.vote, room.playerId, targetId)
+        .catch(function (err) {
+          if (room !== mine) return;
+          roomTrouble(err);
+          room.myVote = null;
+          delete room.cast[room.playerId];
+          renderVote(false);
+        });
+    });
+  }
+
+  function renderTally() {
+    var rows = tallyOf(room.cast);
+    var top = topOf(rows);
+    var most = top.count || 1;
+    var box = $('tally');
+    box.innerHTML = '';
+
+    rows.forEach(function (row) {
+      var wrap = el('div', 'tally-row');
+      var shade = colorOf(row.id);
+      if (shade) wrap.style.setProperty('--player', shade);
+      if (top.ids.indexOf(row.id) !== -1) wrap.classList.add('is-top');
+
+      var head = el('div', 'tally-head');
+      head.appendChild(el('span', 'tally-name', nameOf(row.id)));
+      head.appendChild(el('span', 'tally-count', String(row.voters.length)));
+      wrap.appendChild(head);
+
+      var bar = el('div', 'tally-bar');
+      var fill = el('i');
+      fill.style.width = Math.round(row.voters.length / most * 100) + '%';
+      bar.appendChild(fill);
+      wrap.appendChild(bar);
+
+      wrap.appendChild(el('p', 'tally-voters',
+        row.voters.map(nameOf).join(', ')));
+      box.appendChild(wrap);
+    });
+  }
+
+  /* The host can cut a vote short — somebody has put their phone down, or
+     walked off with it, and the tally would otherwise never complete. */
+  $('btn-vote-close').addEventListener('click', function () {
+    if (!room || !room.isHost) return;
+    var missing = room.voters.length - ballotsIn();
+    ask({
+      title: 'Close the vote now?',
+      body: missing === 1
+        ? 'One person has not voted. Their say is lost.'
+        : missing + ' people have not voted. Their say is lost.',
+      ok: 'Close it', danger: true
+    }).then(function (yes) {
+      if (!yes || !room) return;
+      return R.closeVote(room.code, room.vote).catch(roomTrouble);
+    });
+  });
+
+  $('btn-vote-again').addEventListener('click', function () { dealToRoom(this); });
+  $('btn-vote-end').addEventListener('click', function () { askEndGame(); });
+  $('btn-vote-reveal').addEventListener('click', function () { revealAnswer(); });
 
   /* ---------- the host calls the answer ----------
      Everyone's phone shows the word and who was faking it at the same
@@ -1385,6 +1737,14 @@
         category: deal.category.emoji + ' ' + deal.category.name,
         imposters: deal.imposterNames
       };
+
+      /* If the room voted, the answer is worth a lot more next to what
+         they decided — so carry the last verdict into it. */
+      if (room.vote && room.cast && Object.keys(room.cast).length) {
+        var top = topOf(tallyOf(room.cast));
+        if (top.ids.length === 1) answer.votedOut = nameOf(top.ids[0]);
+        else answer.voteSplit = true;
+      }
 
       var btn = $('btn-room-reveal');
       btn.disabled = true;
@@ -1422,6 +1782,23 @@
     $('verdict-who').textContent = names.length
       ? names.join(' & ') + (names.length === 1 ? ' was the imposter' : ' were the imposters')
       : 'Nobody was faking it';
+
+    var line = $('verdict-vote');
+    line.innerHTML = '';
+    if (meta.votedOut) {
+      var caught = names.indexOf(meta.votedOut) !== -1;
+      line.appendChild(document.createTextNode('The room voted for '));
+      line.appendChild(el('b', null, meta.votedOut));
+      line.appendChild(document.createTextNode(' — '));
+      line.appendChild(el('b', caught ? 'got-it' : 'missed-it',
+        caught ? 'caught them' : 'wrong'));
+      line.hidden = false;
+    } else if (meta.voteSplit) {
+      line.textContent = 'The room could not agree on anybody.';
+      line.hidden = false;
+    } else {
+      line.hidden = true;
+    }
 
     $('verdict-code-text').textContent = room.code;
     applyHostControls();
@@ -1660,7 +2037,9 @@
   }
 
   M.load();
+  applyTheme();
   renderAll();
+  renderVoteRounds();
 
   $('mode').hidden = !roomsAvailable();
   $('lobby-code-share').textContent = navigator.share

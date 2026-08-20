@@ -13,6 +13,7 @@
   var RECENT_MAX = 12;        // words held back from repeating, per category
   var MAX_PLAYERS = 20;
   var MAX_IMPOSTERS = 3;
+  var MAX_VOTES = 3;          // rounds of voting a room can hold
   var NAME_MAX = 18;
 
   var BUILT_IN = global.ImposterWords.CATEGORIES;
@@ -74,17 +75,23 @@
          for it again every single time */
       myName: '',
       imposterCount: 1,
+      /* how many rounds of voting a room offers; the host can still go
+         straight to the answer without using them */
+      voteRounds: 1,
       selected: DEFAULT_CATEGORIES.slice(),
       custom: [],
       recent: {},
+      /* 'auto' follows the phone; 'light' and 'dark' override it */
+      theme: 'auto',
       settings: {
         imposterSeesCategory: true,
-        haptics: true,
         shuffleOrder: false,
         keepAwake: true
       }
     };
   }
+
+  var THEMES = ['auto', 'light', 'dark'];
 
   function load() {
     var saved = null;
@@ -118,6 +125,9 @@
           });
       }
       if (typeof saved.myName === 'string') state.myName = cleanName(saved.myName);
+      if (THEMES.indexOf(saved.theme) !== -1) state.theme = saved.theme;
+      var votes = parseInt(saved.voteRounds, 10);
+      state.voteRounds = Math.min(Math.max(isFinite(votes) ? votes : 1, 1), MAX_VOTES);
       if (Array.isArray(saved.selected)) state.selected = saved.selected.slice();
       if (saved.recent && typeof saved.recent === 'object') state.recent = saved.recent;
       var wanted = parseInt(saved.imposterCount, 10);
@@ -503,9 +513,26 @@
     save();
   }
 
+  function setTheme(value) {
+    if (THEMES.indexOf(value) === -1) return state.theme;
+    state.theme = value;
+    save();
+    return value;
+  }
+
+  /* How many rounds of voting a room offers. The host can still call the
+     answer without using any of them. */
+  function setVoteRounds(n) {
+    var wanted = parseInt(n, 10);
+    state.voteRounds = Math.min(Math.max(isFinite(wanted) ? wanted : 1, 1), MAX_VOTES);
+    save();
+    return state.voteRounds;
+  }
+
   global.ImposterModel = {
     MAX_PLAYERS: MAX_PLAYERS,
     MAX_IMPOSTERS: MAX_IMPOSTERS,
+    MAX_VOTES: MAX_VOTES,
     NAME_MAX: NAME_MAX,
 
     load: load, save: save, reset: reset,
@@ -531,7 +558,7 @@
     peekCard: peekCard,
     markSeen: markSeen, nextPlayer: nextPlayer, imposterNames: imposterNames,
 
-    setSetting: setSetting,
+    setSetting: setSetting, setTheme: setTheme, setVoteRounds: setVoteRounds,
     shuffle: shuffle, pick: pick, randInt: randInt
   };
 

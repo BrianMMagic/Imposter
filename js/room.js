@@ -29,16 +29,16 @@
     return !!config() && !!Seal && Seal.available();
   }
 
-  function url(path) {
-    return config() + '/' + path + '.json';
+  function url(path, query) {
+    return config() + '/' + path + '.json' + (query ? '?' + query : '');
   }
 
   /* ---------- REST ---------- */
-  function request(method, path, body) {
+  function request(method, path, body, query) {
     var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
     if (body !== undefined) opts.body = JSON.stringify(body);
 
-    return fetch(url(path), opts).then(function (res) {
+    return fetch(url(path, query), opts).then(function (res) {
       if (!res.ok) {
         return res.text().then(function (text) {
           throw new Error('Database said ' + res.status + (text ? ': ' + text.slice(0, 120) : ''));
@@ -48,7 +48,7 @@
     });
   }
 
-  function get(path) { return request('GET', path); }
+  function get(path, query) { return request('GET', path, undefined, query); }
   function put(path, value) { return request('PUT', path, value); }
   function patch(path, value) { return request('PATCH', path, value); }
   function remove(path) { return request('DELETE', path); }
@@ -172,7 +172,10 @@
   /* The fields a revealed answer puts in `meta`. Patching them to null
      is how the database is told to drop them again, so a new round
      never starts with the last one's answer still sitting there. */
-  var ANSWER_CLEARED = { word: null, category: null, imposters: null, revealedAt: null };
+  var ANSWER_CLEARED = {
+    word: null, category: null, imposters: null, revealedAt: null,
+    votedOut: null, voteSplit: null
+  };
 
   function withAnswerCleared(fields) {
     var out = {};
@@ -197,14 +200,63 @@
     return chain.then(function () {
       return put('rooms/' + code + '/cards', sealed);
     }).then(function () {
+      /* last round's ballots are no use to this one */
+      return remove('rooms/' + code + '/votes');
+    }).then(function () {
       return patch('rooms/' + code + '/meta', withAnswerCleared({
         phase: 'dealt',
         round: round.number,
         starter: round.starterName,
         imposterCount: round.imposterCount,
+        votesPlanned: round.votesPlanned || 1,
+        vote: 0,
+        voteClosed: null,
+        voteRev: Date.now(),
         dealtAt: Date.now()
       }));
     });
+  }
+
+  /* ---------- voting ----------
+     Who is entitled to vote is the set of people a card was dealt to, which
+     the `cards` node already knows — so somebody who joined halfway through
+     cannot hold up a tally for a round they were never in. `shallow` asks
+     the database for those keys alone rather than the sealed cards under
+     them, which would be a far bigger fetch every time. */
+  function dealtIds(code) {
+    return get('rooms/' + code + '/cards', 'shallow=true').then(function (map) {
+      return Object.keys(map || {});
+    });
+  }
+
+  /* Open a round of voting (host only). */
+  function startVote(code, n) {
+    return remove('rooms/' + code + '/votes/' + n).then(function () {
+      return patch('rooms/' + code + '/meta', {
+        phase: 'voting', vote: n, voteClosed: null, voteRev: Date.now()
+      });
+    });
+  }
+
+  /* Cut a vote short (host only): somebody has put their phone down and
+     the tally would otherwise never be complete. Every phone reads this
+     and counts whatever ballots are there, so they all agree. */
+  function closeVote(code, n) {
+    return patch('rooms/' + code + '/meta', { voteClosed: n, voteRev: Date.now() });
+  }
+
+  /* A ballot can be changed until the last one is in, so it is a plain
+     write rather than an append. Bumping meta is what tells the other
+     phones to come and look; without it they would have to poll the
+     ballots themselves every second and a half. */
+  function castVote(code, n, voterId, targetId) {
+    return put('rooms/' + code + '/votes/' + n + '/' + voterId, targetId).then(function () {
+      return patch('rooms/' + code + '/meta', { voteRev: Date.now() });
+    });
+  }
+
+  function votes(code, n) {
+    return get('rooms/' + code + '/votes/' + n).then(function (map) { return map || {}; });
   }
 
   /* ---------- the answer, once the host calls it (host only) ----------
@@ -219,14 +271,18 @@
       word: answer.word,
       category: answer.category || null,
       imposters: answer.imposters,
+      votedOut: answer.votedOut || null,
+      voteSplit: answer.voteSplit || null,
       revealedAt: Date.now()
     });
   }
 
   function backToLobby(code) {
     return remove('rooms/' + code + '/cards').then(function () {
+      return remove('rooms/' + code + '/votes');
+    }).then(function () {
       return patch('rooms/' + code + '/meta',
-        withAnswerCleared({ phase: 'lobby', lobbyRev: Date.now() }));
+        withAnswerCleared({ phase: 'lobby', vote: 0, lobbyRev: Date.now() }));
     });
   }
 
@@ -276,6 +332,8 @@
     createRoom: createRoom, roomExists: roomExists,
     joinRoom: joinRoom, leaveRoom: leaveRoom, closeRoom: closeRoom,
     players: players, deal: deal, reveal: reveal, backToLobby: backToLobby,
+    dealtIds: dealtIds, startVote: startVote, closeVote: closeVote,
+    castVote: castVote, votes: votes,
     myCard: myCard, watch: watch,
     recall: recall, forget: forget
   };

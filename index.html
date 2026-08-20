@@ -13,6 +13,17 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
+<!-- Paint in the chosen theme from the very first frame. Without this the
+     page renders dark, then flips, every single launch. The key has to match
+     STORAGE_KEY in js/model.js. -->
+<script>
+  try {
+    var saved = JSON.parse(localStorage.getItem('imposter.v1') || '{}').theme;
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  } catch (e) {}
+</script>
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -211,7 +222,8 @@
         <div class="room-dock" id="room-dock" hidden>
           <p class="room-starter" id="room-starter"></p>
           <div class="room-actions" id="room-actions" hidden>
-            <button class="btn btn-primary" id="btn-room-reveal">Reveal the imposter</button>
+            <button class="btn btn-primary" id="btn-room-vote">Start the vote</button>
+            <button class="btn btn-ghost" id="btn-room-reveal">Reveal the imposter</button>
             <div class="room-actions-row">
               <button class="btn btn-ghost" id="btn-room-again">New round</button>
               <button class="btn btn-ghost" id="btn-room-end">End game</button>
@@ -220,6 +232,32 @@
           <p class="room-wait" id="room-wait" hidden>Waiting for the next round…</p>
           <p class="room-roster" id="room-roster" hidden></p>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ VOTING (rooms) ============ -->
+    <section class="view view-vote" id="view-vote" aria-label="Vote for the imposter" hidden>
+      <div class="vote-head">
+        <p class="done-eyebrow" id="vote-eyebrow">Vote 1 of 1</p>
+        <h2 class="vote-title" id="vote-title">Who is the imposter?</h2>
+        <p class="vote-sub" id="vote-sub">Tap the name you think is faking it. You can change your mind until everyone is in.</p>
+      </div>
+
+      <div class="vote-list" id="vote-list"></div>
+      <div class="tally" id="tally" hidden></div>
+      <p class="vote-status" id="vote-status"></p>
+
+      <div class="vote-dock">
+        <div class="room-actions" id="vote-actions" hidden>
+          <button class="btn btn-primary" id="btn-vote-next">Next vote</button>
+          <button class="btn btn-primary" id="btn-vote-reveal">Reveal the imposter</button>
+          <button class="btn btn-ghost" id="btn-vote-close">Close the vote now</button>
+          <div class="room-actions-row">
+            <button class="btn btn-ghost" id="btn-vote-again">New round</button>
+            <button class="btn btn-ghost" id="btn-vote-end">End game</button>
+          </div>
+        </div>
+        <p class="room-wait" id="vote-wait" hidden>Waiting for the host…</p>
       </div>
     </section>
 
@@ -260,6 +298,7 @@
         <p class="verdict-word" id="verdict-word">Word</p>
         <p class="verdict-category" id="verdict-category" hidden></p>
         <p class="verdict-who" id="verdict-who"></p>
+        <p class="verdict-vote" id="verdict-vote" hidden></p>
         <p class="done-sub" id="verdict-sub"></p>
 
         <div class="done-actions" id="verdict-actions" hidden>
@@ -305,30 +344,35 @@
     </button>
   </div>
   <div class="sheet-body">
-    <label class="toggle">
-      <span>
-        <b>Imposter sees the category</b>
-        <i>Their card shows the category name so they can bluff.</i>
-      </span>
-      <input type="checkbox" id="set-cat" />
-      <span class="switch" aria-hidden="true"></span>
-    </label>
-    <label class="toggle">
-      <span>
-        <b>Shuffle the pass order</b>
-        <i>Cards come up in a random order each round.</i>
-      </span>
-      <input type="checkbox" id="set-shuffle" />
-      <span class="switch" aria-hidden="true"></span>
-    </label>
-    <label class="toggle">
-      <span>
-        <b>Vibrate on reveal</b>
-        <i>A short buzz when a card opens.</i>
-      </span>
-      <input type="checkbox" id="set-haptics" />
-      <span class="switch" aria-hidden="true"></span>
-    </label>
+    <div class="sheet-section">
+      <h3>Appearance</h3>
+      <div class="segmented" id="theme-seg" role="group" aria-label="Appearance">
+        <button class="seg" data-theme="auto" aria-pressed="true">Auto</button>
+        <button class="seg" data-theme="light" aria-pressed="false">Light</button>
+        <button class="seg" data-theme="dark" aria-pressed="false">Dark</button>
+      </div>
+      <p class="hint">Auto follows whatever your phone is set to.</p>
+    </div>
+
+    <!-- these change how a round is dealt, so they belong to whoever deals it -->
+    <div id="settings-game">
+      <label class="toggle" id="row-set-cat">
+        <span>
+          <b>Imposter sees the category</b>
+          <i>Their card shows the category name so they can bluff.</i>
+        </span>
+        <input type="checkbox" id="set-cat" />
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+      <label class="toggle" id="row-set-shuffle">
+        <span>
+          <b>Shuffle the pass order</b>
+          <i>Cards come up in a random order each round.</i>
+        </span>
+        <input type="checkbox" id="set-shuffle" />
+        <span class="switch" aria-hidden="true"></span>
+      </label>
+    </div>
     <label class="toggle">
       <span>
         <b>Keep the screen awake</b>
@@ -370,6 +414,16 @@
         <button class="seg" data-count="3" aria-pressed="false">3</button>
       </div>
       <p class="hint" id="imposter-hint-room" hidden></p>
+    </div>
+
+    <div class="sheet-section">
+      <h3>Rounds of voting</h3>
+      <div class="segmented" id="vote-seg" role="group" aria-label="Rounds of voting">
+        <button class="seg" data-votes="1" aria-pressed="true">1</button>
+        <button class="seg" data-votes="2" aria-pressed="false">2</button>
+        <button class="seg" data-votes="3" aria-pressed="false">3</button>
+      </div>
+      <p class="hint">How many times the room can vote before the answer is called. You can always call it sooner.</p>
     </div>
 
     <div class="sheet-section">

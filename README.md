@@ -93,7 +93,9 @@ shown while people are still deciding, only a count of how many have voted. Once
 they are all in, every phone shows the same tally at the same moment — who got
 how many, and who voted for them.
 
-The host chooses **1, 2 or 3 rounds of voting** in the lobby, under **Change**.
+The host chooses **1, 2 or 3 rounds of voting** on the setup screen before
+opening the room, or afterwards in the lobby under **Change** — the same setting
+in both places.
 After each tally the host can run the next one, or go straight to the answer —
 the rounds are what is available, not what is compulsory. If somebody puts their
 phone down mid-vote, **Close the vote now** tallies whatever arrived rather than
@@ -166,11 +168,18 @@ a day later.
   only a hold picks somebody up. Tap a player's
   swatch to give them a different colour — it steps to the next one nobody else
   is wearing, so no two cards ever look alike.
-- **Imposters** — 1, 2 or 3. The choice is capped at `players − 2`, so at least
-  two people always share the word and there is something to work out.
+- **Imposters** — 1, 2 or 3, in either kind of game. Passing one phone, the
+  choice is capped at `players − 2`, so at least two people always share the word
+  and there is something to work out. In a room there is nobody to count yet when
+  you are setting it up, so all three are open and the lobby brings the number
+  down once people have actually joined.
+- **Rounds of voting** — 1, 2 or 3, rooms only, since one phone passed round has
+  nothing to vote on. The same setting as the one in the lobby, so it can be set
+  before the room opens or changed once everyone is in.
 - **How you are playing** — one phone passed round, or separate phones in a
-  room. Only shown once a database is configured. In a room the imposter count
-  moves to the lobby, which is the only place that knows the line-up.
+  room. Only shown once a database is configured. Switching to a room hides the
+  players list, since the players are on their own phones, and brings out the
+  voting card.
 - **Categories** — 15 built in (Animals, Food & Drink, Movies, Jobs, Places,
   Sports & Games, Around the House, Travel, Music, School, Tech, People,
   Transport, Nature, Celebrations), 38 words each. **People** spans actors,

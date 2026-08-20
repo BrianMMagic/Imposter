@@ -361,7 +361,6 @@ body[data-mode="room"] #btn-clear-players,
 body[data-mode="room"] #form-player,
 /* the imposter count needs a line-up to cap it, so in a room it lives in
    the lobby, where the roster is actually known */
-body[data-mode="room"] #card-imposters{display:none}
 
 /* ============================================================
    JOIN

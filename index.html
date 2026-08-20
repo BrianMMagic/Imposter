@@ -97,6 +97,20 @@
         <p class="hint" id="imposter-hint" hidden></p>
       </section>
 
+      <!-- rounds of voting: rooms only, since one phone has nothing to vote on -->
+      <section class="card" id="card-votes" data-when="room">
+        <div class="card-head">
+          <h2>Rounds of voting</h2>
+        </div>
+        <p class="card-sub">How many times the room can vote before the answer is called.</p>
+        <div class="segmented" id="vote-seg-setup" role="group" aria-label="Rounds of voting">
+          <button class="seg" data-votes="1" aria-pressed="true">1</button>
+          <button class="seg" data-votes="2" aria-pressed="false">2</button>
+          <button class="seg" data-votes="3" aria-pressed="false">3</button>
+        </div>
+        <p class="hint">You can always call the answer sooner.</p>
+      </section>
+
       <!-- categories -->
       <section class="card">
         <div class="card-head">

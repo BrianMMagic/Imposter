@@ -489,6 +489,23 @@
      ============================================================ */
   function renderImposters() {
     var s = M.state();
+    var hint = $('imposter-hint');
+
+    /* A room has no line-up yet — the people who will play are not in any
+       list on this phone, they are still opening the app. So the choice is
+       open here, and the lobby brings it down to size once they arrive. */
+    if (mode === 'room') {
+      document.querySelectorAll('#imposter-seg .seg').forEach(function (btn) {
+        btn.disabled = false;
+        btn.setAttribute('aria-pressed',
+          String(parseInt(btn.dataset.count, 10) === s.imposterCount));
+      });
+      hint.textContent = 'Whoever joins sets the limit — two people always share the word, so ' +
+        'this comes down in the lobby if the room is small.';
+      hint.hidden = false;
+      return;
+    }
+
     var max = M.maxImposters();
     var enough = s.players.length >= 3;
 
@@ -499,7 +516,6 @@
       btn.setAttribute('aria-pressed', String(allowed && n === Math.min(s.imposterCount, max)));
     });
 
-    var hint = $('imposter-hint');
     if (!enough) {
       hint.textContent = 'Add at least 3 players to choose.';
       hint.hidden = false;
@@ -515,9 +531,13 @@
   $('imposter-seg').addEventListener('click', function (e) {
     var btn = e.target.closest('.seg');
     if (!btn || btn.disabled) return;
-    M.setImposterCount(btn.dataset.count, M.maxImposters());
+    /* nothing to measure against in a room, so let them ask for any of them */
+    M.setImposterCount(btn.dataset.count,
+      mode === 'room' ? M.MAX_IMPOSTERS : M.maxImposters());
     buzz(8);
     renderImposters();
+    renderRoomImposters();
+    renderLobbySummary();
   });
 
   /* ============================================================
@@ -1033,6 +1053,10 @@
       btn.setAttribute('aria-pressed', String(btn.dataset.mode === mode));
     });
     if (mode === 'room' && !$('input-host-name').value) $('input-host-name').value = rememberedName();
+    /* the imposter choice reads differently in each mode, and the voting
+       card only exists in one of them */
+    renderImposters();
+    renderVoteRounds();
     renderStart();
   }
 
@@ -1360,21 +1384,26 @@
     renderLobbySummary();
   });
 
+  /* Set before the room opens, or changed in the lobby afterwards — the same
+     number either way, so both controls always show the same thing. */
   function renderVoteRounds() {
     var chosen = M.state().voteRounds;
-    document.querySelectorAll('#vote-seg .seg').forEach(function (btn) {
+    document.querySelectorAll('#vote-seg .seg, #vote-seg-setup .seg').forEach(function (btn) {
       btn.setAttribute('aria-pressed', String(parseInt(btn.dataset.votes, 10) === chosen));
     });
   }
 
-  $('vote-seg').addEventListener('click', function (e) {
+  function onVoteRoundsClick(e) {
     var btn = e.target.closest('.seg');
     if (!btn) return;
     M.setVoteRounds(btn.dataset.votes);
     buzz(8);
     renderVoteRounds();
     renderLobbySummary();
-  });
+  }
+
+  $('vote-seg').addEventListener('click', onVoteRoundsClick);
+  $('vote-seg-setup').addEventListener('click', onVoteRoundsClick);
 
   function renderLobbySummary() {
     if (!room || !room.isHost) return;

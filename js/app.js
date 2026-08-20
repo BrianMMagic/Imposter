@@ -55,6 +55,90 @@
   }
 
   /* ============================================================
+     Dialog
+
+     What confirm() and prompt() are for, wearing the app's own
+     clothes instead of the browser's. Resolves to true, or to the
+     typed string when there is a field; to false or null if it is
+     dismissed, so `if (!answer) return;` reads the same either way.
+     ============================================================ */
+  var dismissDialog = null;
+
+  function ask(opts) {
+    if (dismissDialog) dismissDialog();        /* never two of them at once */
+
+    var typing = !!opts.field;
+    var box = $('dialog');
+    var scrim = $('dialog-scrim');
+    var form = $('dialog-field');
+    var input = $('dialog-input');
+    var ok = $('dialog-ok');
+    var cancel = $('dialog-cancel');
+    var cameFrom = document.activeElement;
+
+    $('dialog-title').textContent = opts.title || '';
+    $('dialog-body').textContent = opts.body || '';
+    ok.textContent = opts.ok || 'OK';
+    cancel.textContent = opts.cancel || 'Cancel';
+    ok.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+
+    form.hidden = !typing;
+    if (typing) {
+      input.value = opts.field.value || '';
+      input.maxLength = opts.field.max || M.NAME_MAX;
+      input.placeholder = opts.field.placeholder || '';
+    }
+
+    scrim.hidden = false;
+    box.hidden = false;
+    if (typing) { input.focus(); input.select(); } else { ok.focus(); }
+
+    return new Promise(function (resolve) {
+      function close(value) {
+        dismissDialog = null;
+        box.hidden = true;
+        scrim.hidden = true;
+        ok.removeEventListener('click', onOk);
+        cancel.removeEventListener('click', onCancel);
+        scrim.removeEventListener('click', onCancel);
+        form.removeEventListener('submit', onOk);
+        document.removeEventListener('keydown', onKey, true);
+        /* put the keyboard back where it was, so a dialog opened from a
+           row leaves you on that row rather than at the top of the page */
+        if (cameFrom && cameFrom.focus && document.contains(cameFrom)) {
+          try { cameFrom.focus(); } catch (e) {}
+        }
+        resolve(value);
+      }
+
+      function onOk(e) {
+        if (e) e.preventDefault();
+        if (typing && !input.value.trim()) { input.focus(); return; }
+        close(typing ? input.value : true);
+      }
+
+      function onCancel() { close(typing ? null : false); }
+
+      /* Captured, so Escape closes this and not the sheet underneath it. */
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCancel(); return; }
+        if (e.key !== 'Tab') return;
+        var stops = (typing ? [input] : []).concat([cancel, ok]);
+        var at = stops.indexOf(document.activeElement);
+        e.preventDefault();
+        stops[(at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length].focus();
+      }
+
+      dismissDialog = onCancel;
+      ok.addEventListener('click', onOk);
+      cancel.addEventListener('click', onCancel);
+      scrim.addEventListener('click', onCancel);
+      form.addEventListener('submit', onOk);
+      document.addEventListener('keydown', onKey, true);
+    });
+  }
+
+  /* ============================================================
      Navigation
      ============================================================ */
   var VIEWS = ['setup', 'join', 'lobby', 'reveal', 'done', 'verdict'];
@@ -139,8 +223,13 @@
     name.setAttribute('aria-label', 'Rename ' + player.name);
     name.addEventListener('click', function () {
       if (!tapAllowed()) return;
-      var next = prompt('Rename player', player.name);
-      if (next != null && M.renamePlayer(player.id, next)) renderPlayers();
+      ask({
+        title: 'Rename player',
+        ok: 'Save',
+        field: { value: player.name, max: M.NAME_MAX, placeholder: 'Name' }
+      }).then(function (next) {
+        if (next != null && M.renamePlayer(player.id, next)) renderPlayers();
+      });
     });
 
     var x = el('button', 'row-x');
@@ -342,10 +431,16 @@
   });
 
   $('btn-clear-players').addEventListener('click', function () {
-    if (!confirm('Remove all players?')) return;
-    M.clearPlayers();
-    renderPlayers();
-    renderImposters();
+    ask({
+      title: 'Remove all players?',
+      body: 'The list goes back to empty. Your categories and settings are untouched.',
+      ok: 'Remove all', danger: true
+    }).then(function (yes) {
+      if (!yes) return;
+      M.clearPlayers();
+      renderPlayers();
+      renderImposters();
+    });
   });
 
   /* ============================================================
@@ -641,15 +736,17 @@
 
   $('btn-quit').addEventListener('click', function () {
     if (peeking) { endPeek(); return; }
-    if (room) {
-      if (!confirm(room.isHost ? 'Close the room?' : 'Leave the room?')) return;
-      leaveRoom();
-      return;
-    }
-    if (!confirm('Quit this round? Nobody else will see their card.')) return;
-    closeCard();
-    M.endRound();
-    showView('setup');
+    if (room) { askLeaveRoom(); return; }
+    ask({
+      title: 'Quit this round?',
+      body: 'Nobody else will see their card.',
+      ok: 'Quit', danger: true
+    }).then(function (yes) {
+      if (!yes) return;
+      closeCard();
+      M.endRound();
+      showView('setup');
+    });
   });
 
   /* ============================================================
@@ -776,12 +873,19 @@
   });
 
   $('btn-reset').addEventListener('click', function () {
-    if (!confirm('Reset everything? Players, categories and settings all go back to the start.')) return;
-    M.reset();
-    closeSheets();
-    renderAll();
-    showView('setup');
-    toast('Everything reset');
+    ask({
+      title: 'Reset everything?',
+      body: 'Players, categories, your name and settings all go back to the start.',
+      ok: 'Reset', danger: true
+    }).then(function (yes) {
+      if (!yes) return;
+      M.reset();
+      closeSheets();
+      renderAll();
+      $('input-host-name').value = '';
+      showView('setup');
+      toast('Everything reset');
+    });
   });
 
   /* ---------- category editor ---------- */
@@ -836,14 +940,21 @@
 
   $('cat-delete').addEventListener('click', function () {
     if (!editingCategory) return;
-    if (!confirm('Delete "' + editingCategory.name + '"?')) return;
-    M.deleteCustomCategory(editingCategory.id);
-    closeSheets();
-    renderCategories();
-    renderStart();
-    renderLobbySummary();
-    backToGameSheet();
-    toast('Category deleted');
+    var doomed = editingCategory;
+    ask({
+      title: 'Delete “' + doomed.name + '”?',
+      body: 'Its ' + doomed.words.length + ' words go with it. This cannot be undone.',
+      ok: 'Delete', danger: true
+    }).then(function (yes) {
+      if (!yes) return;
+      M.deleteCustomCategory(doomed.id);
+      closeSheets();
+      renderCategories();
+      renderStart();
+      renderLobbySummary();
+      backToGameSheet();
+      toast('Category deleted');
+    });
   });
 
   /* ============================================================
@@ -866,7 +977,16 @@
     document.querySelectorAll('.mode-seg .seg').forEach(function (btn) {
       btn.setAttribute('aria-pressed', String(btn.dataset.mode === mode));
     });
+    if (mode === 'room' && !$('input-host-name').value) $('input-host-name').value = rememberedName();
     renderStart();
+  }
+
+  /* What to put in a name field before anyone types: what this phone
+     called itself last time, falling back to the top of the players list
+     for somebody who has only ever passed the phone round. */
+  function rememberedName() {
+    var first = M.state().players[0];
+    return M.myName() || (first && first.name) || '';
   }
 
   document.querySelector('.mode-seg').addEventListener('click', function (e) {
@@ -886,6 +1006,8 @@
     var btn = $('btn-start');
     btn.disabled = true;
     btn.textContent = 'Opening the room…';
+
+    M.setMyName(name);
 
     R.createRoom()
       .then(function (code) {
@@ -909,10 +1031,12 @@
 
   function openJoin(code) {
     $('input-code').value = code || '';
-    $('input-join-name').value = (M.state().players[0] && M.state().players[0].name) || '';
+    $('input-join-name').value = rememberedName();
     $('join-error').hidden = true;
     showView('join');
+    /* with a name already filled in, the code is the only thing left to do */
     if (!code) $('input-code').focus();
+    else if (!$('input-join-name').value) $('input-join-name').focus();
   }
 
   $('btn-join-back').addEventListener('click', function () { showView('setup'); });
@@ -930,6 +1054,8 @@
     var btn = $('btn-join');
     btn.disabled = true;
     btn.textContent = 'Joining…';
+
+    M.setMyName(name);
 
     R.roomExists(code)
       .then(function (found) {
@@ -966,12 +1092,27 @@
 
   function roomTrouble(err) { toast(friendlyTrouble(err)); }
 
-  /* ---------- being in a room ---------- */
+  /* ---------- being in a room ----------
+     Every control that belongs to the host alone is set from one place,
+     so no screen can leave one of them showing on somebody else's phone
+     — and a phone that hosted one room and joined the next cannot carry
+     the host's buttons across with it. */
+  function applyHostControls() {
+    var host = !!room && room.isHost;
+    $('btn-lobby-start').hidden = !host;
+    $('lobby-settings').hidden = !host;
+    $('lobby-hint').hidden = !host;
+    $('room-actions').hidden = !host;
+    $('verdict-actions').hidden = !host;
+    $('room-wait').hidden = host;
+    $('verdict-wait').hidden = host;
+    $('verdict-guest').hidden = host;
+    $('room-roster').hidden = !host || !room || !room.dealtWith;
+  }
+
   function enterRoom() {
-    $('lobby-code').textContent = room.code;
-    $('btn-lobby-start').hidden = !room.isHost;
-    $('lobby-settings').hidden = !room.isHost;
-    $('lobby-hint').hidden = !room.isHost;
+    $('lobby-code-text').textContent = room.code;
+    applyHostControls();
     renderLobby();
     showView('lobby');
     watchRoom();
@@ -1056,7 +1197,7 @@
 
     $('lobby-count').textContent = room.roster.length;
     $('lobby-empty').hidden = room.roster.length > 0;
-    $('lobby-settings').hidden = !room.isHost;
+    applyHostControls();
     renderLobbySummary();
     renderRoomImposters();
 
@@ -1214,30 +1355,38 @@
   function revealAnswer() {
     if (!room || !room.isHost) return;
     if (!room.deal) { toast('This phone no longer has the round — deal again first'); return; }
-    if (!confirm('Show the word and the imposter on everyone’s phone?')) return;
 
-    var deal = room.deal;
-    var answer = {
-      word: deal.word,
-      category: deal.category.emoji + ' ' + deal.category.name,
-      imposters: deal.imposterNames
-    };
+    var many = room.deal.imposterNames.length > 1;
+    ask({
+      title: many ? 'Reveal the imposters?' : 'Reveal the imposter?',
+      body: 'The word and who was faking it appear on every phone in the room.',
+      ok: 'Reveal'
+    }).then(function (yes) {
+      if (!yes || !room || !room.deal) return;
 
-    var btn = $('btn-room-reveal');
-    btn.disabled = true;
-    btn.textContent = 'Revealing…';
+      var deal = room.deal;
+      var answer = {
+        word: deal.word,
+        category: deal.category.emoji + ' ' + deal.category.name,
+        imposters: deal.imposterNames
+      };
 
-    R.reveal(room.code, answer)
-      .then(function () {
-        /* The host's own poll would land on this a moment later anyway;
-           showing it now keeps the press and the answer in one beat. */
-        showVerdict({ word: answer.word, category: answer.category, imposters: answer.imposters });
-      })
-      .catch(roomTrouble)
-      .then(function () {
-        btn.disabled = false;
-        btn.textContent = 'Reveal the imposter';
-      });
+      var btn = $('btn-room-reveal');
+      btn.disabled = true;
+      btn.textContent = 'Revealing…';
+
+      return R.reveal(room.code, answer)
+        .then(function () {
+          /* The host's own poll would land on this a moment later anyway;
+             showing it now keeps the press and the answer in one beat. */
+          showVerdict({ word: answer.word, category: answer.category, imposters: answer.imposters });
+        })
+        .catch(roomTrouble)
+        .then(function () {
+          btn.disabled = false;
+          btn.textContent = 'Reveal the imposter';
+        });
+    });
   }
 
   function showVerdict(meta) {
@@ -1259,10 +1408,8 @@
       ? names.join(' & ') + (names.length === 1 ? ' was the imposter' : ' were the imposters')
       : 'Nobody was faking it';
 
-    $('verdict-code').textContent = room.code;
-    $('verdict-actions').hidden = !room.isHost;
-    $('verdict-guest').hidden = room.isHost;
-    $('verdict-wait').hidden = room.isHost;
+    $('verdict-code-text').textContent = room.code;
+    applyHostControls();
     $('verdict-sub').textContent = room.isHost
       ? 'Deal again for another round — anyone who has joined since is dealt in.'
       : '';
@@ -1272,15 +1419,8 @@
     if (fresh) buzz([14, 70, 14]);
   }
 
-  $('btn-verdict-end').addEventListener('click', function () {
-    if (!confirm('End the game and close the room?')) return;
-    leaveRoom();
-  });
-
-  $('btn-verdict-leave').addEventListener('click', function () {
-    if (!confirm('Leave the room?')) return;
-    leaveRoom();
-  });
+  $('btn-verdict-end').addEventListener('click', function () { askEndGame(); });
+  $('btn-verdict-leave').addEventListener('click', function () { askLeaveRoom(); });
 
   /* ---------- everybody picks up their own card ---------- */
   function collectCard() {
@@ -1321,8 +1461,7 @@
 
     $('btn-next').hidden = true;
     $('room-dock').hidden = false;
-    $('room-actions').hidden = !room.isHost;
-    $('room-wait').hidden = room.isHost;
+    applyHostControls();
     $('room-starter').innerHTML = '';
     $('room-starter').appendChild(el('b', null, room.starter || ''));
     $('room-starter').appendChild(document.createTextNode(' starts the round'));
@@ -1333,15 +1472,29 @@
   }
 
   /* ---------- leaving ---------- */
-  $('btn-lobby-leave').addEventListener('click', function () {
-    if (room && room.isHost && !confirm('Close the room? Everyone else is dropped out too.')) return;
-    leaveRoom();
-  });
+  /* Closing a room ends it for everybody; leaving one only drops you. */
+  function askLeaveRoom() {
+    if (!room) return;
+    var host = room.isHost;
+    ask({
+      title: host ? 'Close the room?' : 'Leave the room?',
+      body: host
+        ? 'The game ends for everyone and the code stops working.'
+        : 'You can come back with the same code — your card comes back with you.',
+      ok: host ? 'Close it' : 'Leave', danger: true
+    }).then(function (yes) { if (yes) leaveRoom(); });
+  }
 
-  $('btn-room-end').addEventListener('click', function () {
-    if (!confirm('End the game and close the room?')) return;
-    leaveRoom();
-  });
+  function askEndGame() {
+    ask({
+      title: 'End the game?',
+      body: 'The room closes and everyone is dropped back to the start.',
+      ok: 'End game', danger: true
+    }).then(function (yes) { if (yes) leaveRoom(); });
+  }
+
+  $('btn-lobby-leave').addEventListener('click', askLeaveRoom);
+  $('btn-room-end').addEventListener('click', askEndGame);
 
   function leaveRoom(message) {
     if (!room) return;
@@ -1358,6 +1511,80 @@
     showView('setup');
     if (message) toast(message);
   }
+
+  /* ---------- handing the code to somebody ----------
+     The code is the one thing anybody else needs, so it is also the
+     button that gives it to them: the phone's own share sheet where
+     there is one, the clipboard where there is not. */
+  function roomLink(code) {
+    return location.href.split('#')[0] + '#' + code;
+  }
+
+  function shareRoom() {
+    if (!room) return;
+    var link = roomLink(room.code);
+    buzz(8);
+
+    if (navigator.share) {
+      navigator.share({
+        title: 'Imposter',
+        text: 'Join my game of Imposter — the room code is ' + room.code + '.',
+        url: link
+      }).catch(function (err) {
+        /* Backing out of the share sheet is not a failure and needs no
+           second try. Anything else means it never opened, so fall back
+           rather than leaving the tap looking like it did nothing. */
+        if (err && err.name === 'AbortError') return;
+        copyLink(link);
+      });
+      return;
+    }
+
+    copyLink(link);
+  }
+
+  function copyLink(link) {
+    copyText(link).then(function (copied) {
+      toast(copied ? 'Link copied — the code is in it'
+                   : 'Could not copy — the code is ' + room.code);
+    });
+  }
+
+  function copyText(text) {
+    var asked = navigator.clipboard && navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(text).then(function () { return true; },
+                                                 function () { return false; })
+      : Promise.resolve(false);
+
+    /* A browser that is not the window in front can leave that promise
+       neither resolved nor rejected, which would leave the tap looking
+       like it was ignored. Give it a moment, then fall back regardless,
+       so something is always said back. */
+    var patience = new Promise(function (resolve) {
+      setTimeout(function () { resolve(false); }, 1200);
+    });
+
+    return Promise.race([asked, patience]).then(function (done) {
+      return done || legacyCopy(text);
+    });
+  }
+
+  /* An older phone has no clipboard API worth the name. */
+  function legacyCopy(text) {
+    var box = el('textarea');
+    box.value = text;
+    box.setAttribute('readonly', '');
+    box.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(box);
+    box.select();
+    var done = false;
+    try { done = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(box);
+    return done;
+  }
+
+  $('lobby-code').addEventListener('click', shareRoom);
+  $('verdict-code').addEventListener('click', shareRoom);
 
   /* A shared link, imposter.example/#ABCD, drops straight into joining. */
   function codeFromLink() {
@@ -1421,7 +1648,10 @@
   renderAll();
 
   $('mode').hidden = !roomsAvailable();
+  $('lobby-code-share').textContent = navigator.share
+    ? 'Tap the code to share it' : 'Tap the code to copy the link';
   setMode('pass');
+  $('input-host-name').value = rememberedName();
   var linked = roomsAvailable() ? codeFromLink() : '';
   if (linked) openJoin(linked); else showView('setup');
   $('version').textContent = 'Imposter v' + APP_VERSION;

@@ -75,8 +75,11 @@ changes, so a long game is a few hundred kilobytes.
 **Then, to play:** the host switches to **Separate phones**, puts their own name
 in and taps **Create room**. Everyone else opens the app, taps **Join someone's
 room** and types the four letters — or just follows a link ending in the code,
-like `.../imposter/#ABCD`, which fills it in for them. Names appear in the host's
-lobby as they arrive. **Change** in the lobby sets the imposters and categories
+like `.../imposter/#ABCD`, which fills it in for them. **Tap the code** in the
+lobby to hand it out: the phone's own share sheet where there is one, the link
+on the clipboard where there is not. Your name is remembered between games, so
+after the first time the code is the only thing left to type. Names appear in
+the host's lobby as they arrive. **Change** in the lobby sets the imposters and categories
 while people are still arriving — the imposter count is capped by who has
 actually joined, so it opens up as the room fills. The host taps **Start game**
 and every phone shows its own card, held the same way as ever. Your card stays on screen for the whole round,
@@ -97,6 +100,11 @@ that they are in for the next one — no card is dealt to them for a round they 
 not play. The host sees *4 in the room · 1 joined since* on their own screen and
 deals them in with the next round. Nobody has to go back to the front and type a
 new code, and the host never has to close and reopen the room to let a friend in.
+The code is on the answer screen too, tappable to share, for exactly this.
+
+**Reveal, New round and End game are the host's alone** — they never appear on
+anybody else's phone, whichever screen it happens to be on. A guest gets the
+round they are in, and a way out of the room.
 
 **What the database is trusted with: almost nothing.** Each phone makes an
 encryption keypair when it joins and publishes only the public half. The host
@@ -146,6 +154,13 @@ a day later.
   are in play.
 - **Your own** — build a category from your own list of words, saved on the
   device. Edit or delete it later from the pencil on its chip.
+- **Your name** — whatever you last hosted or joined a room as is kept on the
+  device and filled in for you next time. **Reset everything** forgets it.
+
+Nothing in the app uses the browser's own `confirm`, `prompt` or `alert` boxes.
+Anything worth asking about — leaving a room, revealing the answer, deleting a
+category, renaming a player — is asked in the app's own dialog, which can be
+dismissed by tapping outside it or pressing Escape.
 
 **Passing the phone**
 

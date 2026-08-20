@@ -70,6 +70,9 @@
   function defaults() {
     return {
       players: [],
+      /* what this phone's owner calls themselves, so a room does not ask
+         for it again every single time */
+      myName: '',
       imposterCount: 1,
       selected: DEFAULT_CATEGORIES.slice(),
       custom: [],
@@ -114,6 +117,7 @@
             };
           });
       }
+      if (typeof saved.myName === 'string') state.myName = cleanName(saved.myName);
       if (Array.isArray(saved.selected)) state.selected = saved.selected.slice();
       if (saved.recent && typeof saved.recent === 'object') state.recent = saved.recent;
       var wanted = parseInt(saved.imposterCount, 10);
@@ -185,6 +189,18 @@
 
   function cleanName(name) {
     return String(name == null ? '' : name).replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+  }
+
+  /* The name this phone joins rooms under. Remembered so nobody has to
+     type it in every time, and offered as the default next time. */
+  function myName() { return state.myName || ''; }
+
+  function setMyName(name) {
+    var clean = cleanName(name);
+    if (!clean) return '';
+    state.myName = clean;
+    save();
+    return clean;
   }
 
   function addPlayer(name) {
@@ -494,6 +510,8 @@
 
     load: load, save: save, reset: reset,
     state: function () { return state; },
+
+    myName: myName, setMyName: setMyName,
 
     addPlayer: addPlayer, removePlayer: removePlayer, renamePlayer: renamePlayer,
     clearPlayers: clearPlayers, getPlayer: getPlayer, movePlayer: movePlayer,

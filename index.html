@@ -136,7 +136,12 @@
     <section class="view view-lobby" id="view-lobby" aria-label="Room lobby" hidden>
       <div class="lobby-code">
         <p class="lobby-code-label">Room code</p>
-        <p class="lobby-code-value" id="lobby-code">····</p>
+        <button class="lobby-code-value" id="lobby-code" type="button"
+                aria-label="Share the room code">
+          <span id="lobby-code-text">····</span>
+          <svg class="share-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM8.7 13.6l6.6 3.8M15.3 6.6 8.7 10.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+        </button>
+        <p class="lobby-code-share" id="lobby-code-share">Tap the code to share it</p>
         <p class="lobby-code-hint" id="lobby-hint">Everyone opens this app and taps <b>Join someone's room</b>.</p>
       </div>
 
@@ -268,9 +273,12 @@
 
         <div class="verdict-room">
           <p class="peek-label">
-            Room <b class="verdict-code" id="verdict-code">····</b> is still open —
-            anyone else can join for the next round.
+            The room is still open — anyone else can join for the next round.
           </p>
+          <button class="verdict-code" id="verdict-code" type="button" aria-label="Share the room code">
+            <span id="verdict-code-text">····</span>
+            <svg class="share-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM8.7 13.6l6.6 3.8M15.3 6.6 8.7 10.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+          </button>
           <div class="lobby-players" id="verdict-players"></div>
         </div>
       </div>
@@ -407,6 +415,24 @@
     </div>
   </div>
 </section>
+
+<!-- ============ DIALOG ============
+     Stands in for confirm() and prompt(), which look like the browser
+     rather than like the app, and cannot be styled at all. -->
+<div class="dialog-scrim" id="dialog-scrim" hidden></div>
+<div class="dialog" id="dialog" role="alertdialog" aria-modal="true"
+     aria-labelledby="dialog-title" aria-describedby="dialog-body" hidden>
+  <h2 class="dialog-title" id="dialog-title"></h2>
+  <p class="dialog-body" id="dialog-body"></p>
+  <form class="dialog-field" id="dialog-field" hidden autocomplete="off">
+    <input class="input" id="dialog-input" type="text" maxlength="18"
+           autocapitalize="words" autocorrect="off" spellcheck="false" enterkeyhint="done" />
+  </form>
+  <div class="dialog-actions">
+    <button class="btn btn-ghost" id="dialog-cancel" type="button">Cancel</button>
+    <button class="btn btn-primary" id="dialog-ok" type="button">OK</button>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" hidden></div>
 

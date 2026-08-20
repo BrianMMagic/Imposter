@@ -57,13 +57,14 @@
   /* ============================================================
      Navigation
      ============================================================ */
-  var VIEWS = ['setup', 'join', 'lobby', 'reveal', 'done'];
+  var VIEWS = ['setup', 'join', 'lobby', 'reveal', 'done', 'verdict'];
+  var PLAYING = ['reveal', 'done', 'verdict'];
 
   function showView(name) {
     view = name;
     VIEWS.forEach(function (v) { $('view-' + v).hidden = v !== name; });
     $('start-dock').hidden = name !== 'setup';
-    document.body.classList.toggle('is-playing', name === 'reveal' || name === 'done');
+    document.body.classList.toggle('is-playing', PLAYING.indexOf(name) !== -1);
     if (name === 'setup' || name === 'join') releaseWake(); else requestWake();
     window.scrollTo({ top: 0 });
   }
@@ -990,7 +991,10 @@
 
     refreshRoster();
 
-    if (meta.phase === 'dealt' && meta.round !== room.round) {
+    if (meta.phase === 'revealed') {
+      room.round = meta.round;
+      showVerdict(meta);
+    } else if (meta.phase === 'dealt' && meta.round !== room.round) {
       room.round = meta.round;
       room.starter = meta.starter;
       collectCard();
@@ -1009,21 +1013,46 @@
         return p;
       });
       renderLobby();
+      renderRoomStatus();
     }).catch(function () {});
   }
 
-  function renderLobby() {
-    if (!room) return;
-    var list = $('lobby-players');
-    list.innerHTML = '';
-
+  /* The same chips in the lobby, on the answer screen, and anywhere else
+     the room's line-up is worth showing. */
+  function renderRoomPlayers(into) {
+    into.innerHTML = '';
     room.roster.forEach(function (p) {
       var chip = el('span', 'lobby-player');
       chip.style.setProperty('--player', p.color);
       if (p.id === room.playerId) chip.classList.add('is-me');
       chip.appendChild(el('span', null, p.name + (p.id === room.playerId ? ' (you)' : '')));
-      list.appendChild(chip);
+      into.appendChild(chip);
     });
+  }
+
+  /* The room stays open all game, so people can turn up mid-round. This is
+     how the host finds out, without leaving the screen they are on. */
+  function renderRoomStatus() {
+    if (!room) return;
+    if (!$('view-verdict').hidden) renderRoomPlayers($('verdict-players'));
+
+    var line = $('room-roster');
+    if (!room.isHost || !room.dealtWith) { line.hidden = true; return; }
+
+    var waiting = room.roster.length - room.dealtWith;
+    line.innerHTML = '';
+    line.appendChild(document.createTextNode(room.roster.length + ' in the room'));
+    if (waiting > 0) {
+      line.appendChild(document.createTextNode(' · '));
+      line.appendChild(el('b', null, waiting + (waiting === 1 ? ' joined since' : ' joined since')));
+      line.appendChild(document.createTextNode(' — deal again to bring them in'));
+    }
+    line.hidden = false;
+  }
+
+  function renderLobby() {
+    if (!room) return;
+    renderRoomPlayers($('lobby-players'));
 
     $('lobby-count').textContent = room.roster.length;
     $('lobby-empty').hidden = room.roster.length > 0;
@@ -1039,6 +1068,9 @@
       $('lobby-status').textContent = check.ok
         ? 'Start when everyone is in — you can deal again at any point.'
         : '';
+    } else if (room.waiting) {
+      $('lobby-status').textContent =
+        'A round is already under way — you are in for the next one.';
     } else {
       $('lobby-status').textContent = 'You are in. Waiting for the host to start…';
     }
@@ -1125,20 +1157,32 @@
   });
 
   /* ---------- the host deals ---------- */
-  $('btn-lobby-start').addEventListener('click', function () { dealToRoom(); });
-  $('btn-room-again').addEventListener('click', function () { dealToRoom(); });
+  $('btn-lobby-start').addEventListener('click', function () { dealToRoom(this); });
+  $('btn-room-again').addEventListener('click', function () { dealToRoom(this); });
+  $('btn-verdict-again').addEventListener('click', function () { dealToRoom(this); });
 
-  function dealToRoom() {
+  function dealToRoom(btn) {
     if (!room || !room.isHost) return;
     var check = M.canDeal(room.roster);
     if (!check.ok) { toast(check.reason); return; }
 
-    var btn = $('btn-lobby-start');
+    btn = btn || $('btn-lobby-start');
+    var label = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Dealing…';
 
     var deal = M.dealFor(room.roster);
     var number = room.round + 1;
+
+    /* The host's phone is the only one that knows the whole round, so hold
+       on to it — that is what the answer is read from when it is called.
+       The names are worked out now rather than at reveal time, so somebody
+       leaving mid-round cannot quietly drop out of the answer. */
+    deal.imposterNames = room.roster
+      .filter(function (p) { return deal.imposters[p.id]; })
+      .map(function (p) { return p.name; });
+    room.deal = deal;
+    room.dealtWith = room.roster.length;
 
     R.deal(room.code, {
       number: number,
@@ -1158,22 +1202,109 @@
       .catch(roomTrouble)
       .then(function () {
         btn.disabled = false;
-        btn.textContent = 'Start game';
+        btn.textContent = label;
       });
   }
+
+  /* ---------- the host calls the answer ----------
+     Everyone's phone shows the word and who was faking it at the same
+     moment, so nobody has to take the host's word for it. */
+  $('btn-room-reveal').addEventListener('click', function () { revealAnswer(); });
+
+  function revealAnswer() {
+    if (!room || !room.isHost) return;
+    if (!room.deal) { toast('This phone no longer has the round — deal again first'); return; }
+    if (!confirm('Show the word and the imposter on everyone’s phone?')) return;
+
+    var deal = room.deal;
+    var answer = {
+      word: deal.word,
+      category: deal.category.emoji + ' ' + deal.category.name,
+      imposters: deal.imposterNames
+    };
+
+    var btn = $('btn-room-reveal');
+    btn.disabled = true;
+    btn.textContent = 'Revealing…';
+
+    R.reveal(room.code, answer)
+      .then(function () {
+        /* The host's own poll would land on this a moment later anyway;
+           showing it now keeps the press and the answer in one beat. */
+        showVerdict({ word: answer.word, category: answer.category, imposters: answer.imposters });
+      })
+      .catch(roomTrouble)
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = 'Reveal the imposter';
+      });
+  }
+
+  function showVerdict(meta) {
+    if (!room) return;
+    var fresh = view !== 'verdict';
+    peeking = null;
+    closeCard();
+    closeSheets();
+
+    var names = Array.isArray(meta.imposters) ? meta.imposters.slice()
+      : meta.imposters ? [String(meta.imposters)] : [];
+    var word = meta.word == null ? '' : String(meta.word);
+
+    $('verdict-word').textContent = word || '—';
+    $('verdict-word').className = 'verdict-word ' + lengthClass(word);
+    $('verdict-category').textContent = meta.category || '';
+    $('verdict-category').hidden = !meta.category;
+    $('verdict-who').textContent = names.length
+      ? names.join(' & ') + (names.length === 1 ? ' was the imposter' : ' were the imposters')
+      : 'Nobody was faking it';
+
+    $('verdict-code').textContent = room.code;
+    $('verdict-actions').hidden = !room.isHost;
+    $('verdict-guest').hidden = room.isHost;
+    $('verdict-wait').hidden = room.isHost;
+    $('verdict-sub').textContent = room.isHost
+      ? 'Deal again for another round — anyone who has joined since is dealt in.'
+      : '';
+
+    renderRoomPlayers($('verdict-players'));
+    showView('verdict');
+    if (fresh) buzz([14, 70, 14]);
+  }
+
+  $('btn-verdict-end').addEventListener('click', function () {
+    if (!confirm('End the game and close the room?')) return;
+    leaveRoom();
+  });
+
+  $('btn-verdict-leave').addEventListener('click', function () {
+    if (!confirm('Leave the room?')) return;
+    leaveRoom();
+  });
 
   /* ---------- everybody picks up their own card ---------- */
   function collectCard() {
     R.myCard(room.code, room.playerId).then(function (card) {
-      if (!room || !card) return;
+      if (!room) return;
+      if (!card) { waitForNextRound(); return; }
       showRoomCard(card);
     }).catch(function (err) {
       toast('Could not open your card — ' + (err.message || 'try again'));
     });
   }
 
+  /* Joined after the deal, so there is no card for this round. The room
+     stays open, so they simply wait in the lobby and are dealt in next
+     time round rather than being sent back to type the code again. */
+  function waitForNextRound() {
+    room.waiting = true;
+    showView('lobby');
+    renderLobby();
+  }
+
   function showRoomCard(card) {
     peeking = null;
+    room.waiting = false;
     room.card = card;
 
     paintCard({
@@ -1195,6 +1326,7 @@
     $('room-starter').innerHTML = '';
     $('room-starter').appendChild(el('b', null, room.starter || ''));
     $('room-starter').appendChild(document.createTextNode(' starts the round'));
+    renderRoomStatus();
 
     showView('reveal');
     buzz([12, 60, 12]);
@@ -1222,6 +1354,7 @@
 
     $('btn-next').hidden = false;
     $('room-dock').hidden = true;
+    $('room-roster').hidden = true;
     showView('setup');
     if (message) toast(message);
   }

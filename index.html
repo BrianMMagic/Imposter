@@ -206,10 +206,14 @@
         <div class="room-dock" id="room-dock" hidden>
           <p class="room-starter" id="room-starter"></p>
           <div class="room-actions" id="room-actions" hidden>
-            <button class="btn btn-primary" id="btn-room-again">New round</button>
-            <button class="btn btn-ghost" id="btn-room-end">End game</button>
+            <button class="btn btn-primary" id="btn-room-reveal">Reveal the imposter</button>
+            <div class="room-actions-row">
+              <button class="btn btn-ghost" id="btn-room-again">New round</button>
+              <button class="btn btn-ghost" id="btn-room-end">End game</button>
+            </div>
           </div>
           <p class="room-wait" id="room-wait" hidden>Waiting for the next round…</p>
+          <p class="room-roster" id="room-roster" hidden></p>
         </div>
       </div>
     </section>
@@ -240,6 +244,34 @@
             <span class="answer-front">Hold to reveal the answer</span>
             <span class="answer-back" id="answer-back" aria-hidden="true"></span>
           </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ THE ANSWER, CALLED BY THE HOST (rooms) ============ -->
+    <section class="view view-done view-verdict" id="view-verdict" aria-label="The answer" hidden>
+      <div class="done-inner">
+        <p class="done-eyebrow">The word was</p>
+        <p class="verdict-word" id="verdict-word">Word</p>
+        <p class="verdict-category" id="verdict-category" hidden></p>
+        <p class="verdict-who" id="verdict-who"></p>
+        <p class="done-sub" id="verdict-sub"></p>
+
+        <div class="done-actions" id="verdict-actions" hidden>
+          <button class="btn btn-primary btn-lg" id="btn-verdict-again">New round</button>
+          <button class="btn btn-ghost" id="btn-verdict-end">End game</button>
+        </div>
+        <p class="room-wait" id="verdict-wait" hidden>Waiting for the host…</p>
+        <div class="done-actions" id="verdict-guest" hidden>
+          <button class="btn btn-ghost" id="btn-verdict-leave">Leave room</button>
+        </div>
+
+        <div class="verdict-room">
+          <p class="peek-label">
+            Room <b class="verdict-code" id="verdict-code">····</b> is still open —
+            anyone else can join for the next round.
+          </p>
+          <div class="lobby-players" id="verdict-players"></div>
         </div>
       </div>
     </section>

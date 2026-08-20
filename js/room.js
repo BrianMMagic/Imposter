@@ -169,6 +169,18 @@
     });
   }
 
+  /* The fields a revealed answer puts in `meta`. Patching them to null
+     is how the database is told to drop them again, so a new round
+     never starts with the last one's answer still sitting there. */
+  var ANSWER_CLEARED = { word: null, category: null, imposters: null, revealedAt: null };
+
+  function withAnswerCleared(fields) {
+    var out = {};
+    Object.keys(ANSWER_CLEARED).forEach(function (k) { out[k] = null; });
+    Object.keys(fields).forEach(function (k) { out[k] = fields[k]; });
+    return out;
+  }
+
   /* ---------- dealing (host only) ----------
      Each card is sealed to the phone it belongs to before it is
      written, so the round itself never leaves the host's phone. */
@@ -185,19 +197,36 @@
     return chain.then(function () {
       return put('rooms/' + code + '/cards', sealed);
     }).then(function () {
-      return patch('rooms/' + code + '/meta', {
+      return patch('rooms/' + code + '/meta', withAnswerCleared({
         phase: 'dealt',
         round: round.number,
         starter: round.starterName,
         imposterCount: round.imposterCount,
         dealtAt: Date.now()
-      });
+      }));
+    });
+  }
+
+  /* ---------- the answer, once the host calls it (host only) ----------
+     A card is sealed because only one phone may read it. The answer is
+     the opposite: the whole table is meant to see it at the same moment,
+     so it goes up in the open. It is written only when the host reveals,
+     and `deal` clears it again the moment the next round starts, so the
+     round in progress is never sitting there in readable form. */
+  function reveal(code, answer) {
+    return patch('rooms/' + code + '/meta', {
+      phase: 'revealed',
+      word: answer.word,
+      category: answer.category || null,
+      imposters: answer.imposters,
+      revealedAt: Date.now()
     });
   }
 
   function backToLobby(code) {
     return remove('rooms/' + code + '/cards').then(function () {
-      return patch('rooms/' + code + '/meta', { phase: 'lobby', lobbyRev: Date.now() });
+      return patch('rooms/' + code + '/meta',
+        withAnswerCleared({ phase: 'lobby', lobbyRev: Date.now() }));
     });
   }
 
@@ -246,7 +275,7 @@
 
     createRoom: createRoom, roomExists: roomExists,
     joinRoom: joinRoom, leaveRoom: leaveRoom, closeRoom: closeRoom,
-    players: players, deal: deal, backToLobby: backToLobby,
+    players: players, deal: deal, reveal: reveal, backToLobby: backToLobby,
     myCard: myCard, watch: watch,
     recall: recall, forget: forget
   };

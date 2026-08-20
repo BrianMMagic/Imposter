@@ -429,11 +429,18 @@ body[data-mode="room"] #card-imposters{display:none}
   padding:2px 0 2px;
 }
 .room-starter b{color:var(--accent)}
-.room-actions{display:flex;gap:10px}
+/* Calling the answer is the button the host reaches for mid-round, so it
+   gets the full width and the other two share the row underneath. */
+.room-actions{display:flex;flex-direction:column;gap:10px}
 .room-actions[hidden]{display:none}
-.room-actions .btn{flex:1}
+.room-actions-row{display:flex;gap:10px}
+.room-actions-row .btn{flex:1}
 .room-wait{text-align:center;color:var(--muted);font-size:13.5px;padding-bottom:6px}
 .room-wait[hidden]{display:none}
+/* who is in the room, so the host can see somebody arrive mid-round */
+.room-roster{text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5}
+.room-roster[hidden]{display:none}
+.room-roster b{color:var(--accent)}
 
 /* ============================================================
    REVEAL — the pass-the-phone card
@@ -659,6 +666,38 @@ body[data-mode="room"] #card-imposters{display:none}
 .answer-who{color:var(--danger)}
 
 /* ============================================================
+   THE ANSWER, CALLED BY THE HOST
+
+   Nothing is held open here: the host has decided the table should
+   see it, so every phone shows it outright.
+   ============================================================ */
+.verdict-word{
+  font-size:clamp(34px,11vw,50px);font-weight:850;letter-spacing:-.03em;
+  line-height:1.1;overflow-wrap:anywhere;
+  color:var(--accent);
+  animation:rise .4s cubic-bezier(.2,.9,.3,1.2);
+  max-width:100%;
+}
+.verdict-word.len-md{font-size:clamp(28px,8.5vw,40px)}
+.verdict-word.len-lg{font-size:clamp(23px,6.5vw,32px)}
+.verdict-category{color:var(--muted);font-size:14.5px;font-weight:650}
+.verdict-category[hidden]{display:none}
+.verdict-who{
+  margin-top:10px;padding:14px 20px;border-radius:18px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb,var(--danger) 22%,transparent), transparent 65%),
+    var(--surface);
+  border:2px solid color-mix(in srgb,var(--danger) 40%,var(--line));
+  box-shadow:var(--shadow);
+  font-size:clamp(18px,5.5vw,24px);font-weight:800;line-height:1.25;
+  color:var(--danger);overflow-wrap:anywhere;max-width:100%;
+  animation:rise .4s .06s backwards cubic-bezier(.2,.9,.3,1.2);
+}
+.verdict-room{margin-top:auto;padding-top:26px;width:100%}
+.verdict-room .lobby-players{justify-content:center}
+.verdict-code{color:var(--accent);letter-spacing:.16em;font-weight:800}
+
+/* ============================================================
    SHEETS
    ============================================================ */
 .scrim{
@@ -771,6 +810,7 @@ body.is-playing,body.is-playing .app{overflow:hidden}
 body.is-playing .app{height:100dvh;min-height:0}
 body.is-playing .view-reveal{padding-top:calc(var(--safe-t) + 8px)}
 body.is-playing .view-done{padding-top:calc(var(--safe-t) + 16px)}
+body.is-playing .view-verdict{padding-top:calc(var(--safe-t) + 16px)}
 
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}

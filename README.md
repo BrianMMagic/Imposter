@@ -83,14 +83,37 @@ and every phone shows its own card, held the same way as ever. Your card stays o
 so forgetting your word is a non-issue. The host can deal again with **New
 round** without anybody rejoining.
 
-**What the database is trusted with: nothing.** Each phone makes an encryption
-keypair when it joins and publishes only the public half. The host deals on
-their own phone exactly as they would passing it round, then seals every card to
-the player it belongs to before uploading it. The secret word and who is faking
-it are never uploaded in a form anyone else can read — not the other players,
-not somebody who guesses your room code, not you looking at your own database.
-The round only ever exists in the open on the host's phone, and only for as long
-as the round lasts.
+**Settling it.** When the group has voted, the host taps **Reveal the imposter**
+and every phone in the room shows the same thing at the same moment: the word,
+the category it came from, and who was faking it. Nobody has to take the host's
+word for it, and nobody has to lean over to see a screen. From there the host
+picks **New round** or **End game**, and everybody else is simply carried along.
+Names are worked out when the cards are dealt rather than when the answer is
+called, so somebody who walks off mid-round still shows up in the answer.
+
+**The room stays open all game.** Somebody arriving in the middle of a round
+joins with the same code as everyone else, and is told a round is under way and
+that they are in for the next one — no card is dealt to them for a round they did
+not play. The host sees *4 in the room · 1 joined since* on their own screen and
+deals them in with the next round. Nobody has to go back to the front and type a
+new code, and the host never has to close and reopen the room to let a friend in.
+
+**What the database is trusted with: almost nothing.** Each phone makes an
+encryption keypair when it joins and publishes only the public half. The host
+deals on their own phone exactly as they would passing it round, then seals every
+card to the player it belongs to before uploading it. While a round is being
+played the secret word and who is faking it are never uploaded in a form anyone
+else can read — not the other players, not somebody who guesses your room code,
+not you looking at your own database. The round only ever exists in the open on
+the host's phone.
+
+The one exception is deliberate: **revealing the answer publishes it**, because
+the whole point is that everyone sees it at once. From the moment the host taps
+reveal until the next round is dealt, the word and the imposters' names sit in
+the room in plain text, where anyone who already knows the four-letter code could
+read them. That is a round that is already over, and dealing again wipes them —
+but if you would rather it never left the host's phone at all, don't use the
+button.
 
 **Worth knowing.** Rooms need every phone online; pass-the-phone still needs
 nothing, so it is the better bet on bad wifi. Reloading the page drops you back
@@ -160,7 +183,7 @@ a day later.
 ## Layout
 
 ```
-index.html              markup for the three screens and the two sheets
+index.html              markup for the screens and the sheets
 css/styles.css          mobile-first styles, light + dark via prefers-color-scheme
 js/words.js             the 15 built-in categories
 js/model.js             players, categories, storage and dealing a round

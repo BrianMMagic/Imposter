@@ -1400,6 +1400,20 @@
     buzz(8);
     renderVoteRounds();
     renderLobbySummary();
+    pushVotesPlanned();
+  }
+
+  /* Changing this mid-game is almost always somebody wanting one more vote
+     than they planned for, so it lands on the round in progress rather than
+     waiting for the next one. Everyone else picks it up on their next poll. */
+  function pushVotesPlanned() {
+    if (!room || !room.isHost || !room.round) return;
+    var n = M.state().voteRounds;
+    if (n === room.votesPlanned) return;
+    room.votesPlanned = n;
+    applyHostControls();
+    if (view === 'vote') renderVote(false);
+    R.setVotesPlanned(room.code, n).catch(roomTrouble);
   }
 
   $('vote-seg').addEventListener('click', onVoteRoundsClick);
@@ -1417,12 +1431,21 @@
       votes + (votes === 1 ? ' vote' : ' votes');
   }
 
-  $('btn-lobby-edit').addEventListener('click', function () {
+  /* Reachable from the lobby and from inside the game, because wanting a
+     different number of imposters is something you find out by playing. */
+  function openGameSheet() {
+    if (!room || !room.isHost) return;
     renderRoomImposters();
     renderVoteRounds();
     renderCategories();
+    $('game-sheet-note').hidden = !room.round;
     openSheet('sheet-game');
-  });
+  }
+
+  $('btn-lobby-edit').addEventListener('click', openGameSheet);
+  $('btn-room-change').addEventListener('click', openGameSheet);
+  $('btn-vote-change').addEventListener('click', openGameSheet);
+  $('btn-verdict-change').addEventListener('click', openGameSheet);
 
   $('btn-select-all-room').addEventListener('click', function () {
     M.selectAllCategories(true);
@@ -1617,7 +1640,9 @@
     var done = voteDone();
     var total = (room.voters || []).length;
 
-    $('vote-eyebrow').textContent = 'Vote ' + room.vote + ' of ' + room.votesPlanned;
+    /* the host can lower this mid-round, and "vote 2 of 1" reads as a bug */
+    $('vote-eyebrow').textContent =
+      'Vote ' + room.vote + ' of ' + Math.max(room.vote, room.votesPlanned);
     $('vote-title').textContent = done ? 'The votes are in' : 'Who is the imposter?';
 
     $('vote-list').hidden = done;
@@ -2016,7 +2041,7 @@
   function backToGameSheet() {
     if (!cameFromGameSheet) return;
     cameFromGameSheet = false;
-    if (room && room.isHost) { renderRoomImposters(); openSheet('sheet-game'); }
+    openGameSheet();
   }
 
   /* ============================================================

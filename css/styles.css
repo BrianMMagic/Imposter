@@ -51,6 +51,13 @@
 
 *,*::before,*::after{box-sizing:border-box}
 
+/* Any class that sets `display` silently beats the browser's own
+   [hidden]{display:none}, and this app hides a great deal by attribute —
+   including controls that belong to the host alone. Said once, here, so
+   that hiding something never depends on remembering to repeat it next to
+   every display declaration. */
+[hidden]{display:none !important}
+
 html,body{height:100%;touch-action:manipulation}
 body{
   margin:0;
@@ -124,7 +131,6 @@ svg{width:24px;height:24px}
 
 .views{flex:1;position:relative;display:flex;flex-direction:column;min-height:0}
 .view{animation:fade .22s ease}
-.view[hidden]{display:none}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ============================================================
@@ -254,7 +260,6 @@ svg{width:24px;height:24px}
   display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
   color:var(--muted);font-size:12.5px;margin-top:10px;
 }
-.order-note[hidden]{display:none}
 .order-note .link-btn{font-size:12.5px;min-height:0;padding:0}
 
 /* imposters */
@@ -312,7 +317,6 @@ svg{width:24px;height:24px}
   padding:12px 16px calc(var(--safe-b) + 12px);
   background:linear-gradient(to top,var(--bg) 62%,transparent);
 }
-.start-dock[hidden]{display:none}
 .start-reason{
   text-align:center;color:var(--muted);font-size:13px;
   margin-bottom:8px;
@@ -328,8 +332,6 @@ svg{width:24px;height:24px}
   transition:transform .12s ease,opacity .12s ease;
 }
 .btn:active{transform:scale(.97)}
-/* a class that sets display beats the browser's [hidden] rule, so say it here */
-.btn[hidden]{display:none}
 .btn-lg{width:100%;min-height:56px;font-size:17px;border-radius:16px}
 .btn-primary{
   background:linear-gradient(135deg,var(--accent),var(--accent-2));
@@ -345,7 +347,6 @@ svg{width:24px;height:24px}
 
 /* ---------- how you are playing ---------- */
 .mode{margin-bottom:14px}
-.mode[hidden]{display:none}
 .mode-seg{grid-template-columns:repeat(2,1fr);margin-top:0}
 .mode-seg .seg{font-size:14.5px;font-weight:700}
 .mode-join{display:block;width:100%;text-align:center;margin-top:10px}
@@ -376,7 +377,6 @@ body[data-mode="room"] #form-player{display:none}
 .join-error{
   color:var(--danger);font-size:13.5px;font-weight:600;text-align:center;
 }
-.join-error[hidden]{display:none}
 
 /* ============================================================
    LOBBY
@@ -445,11 +445,9 @@ body[data-mode="room"] #form-player{display:none}
 }
 .lobby-dock{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:14px}
 .lobby-dock .btn-ghost{width:100%}
-.lobby-dock .btn[hidden]{display:none}
 
 /* ---------- the dock while playing in a room ---------- */
 .room-dock{display:flex;flex-direction:column;gap:10px}
-.room-dock[hidden]{display:none}
 .room-starter{
   text-align:center;font-size:16px;font-weight:700;
   padding:2px 0 2px;
@@ -458,15 +456,21 @@ body[data-mode="room"] #form-player{display:none}
 /* Calling the answer is the button the host reaches for mid-round, so it
    gets the full width and the other two share the row underneath. */
 .room-actions{display:flex;flex-direction:column;gap:10px}
-.room-actions[hidden]{display:none}
 .room-actions-row{display:flex;gap:10px}
-.room-actions-row[hidden]{display:none}
 .room-actions-row .btn{flex:1}
 .room-wait{text-align:center;color:var(--muted);font-size:13.5px;padding-bottom:6px}
-.room-wait[hidden]{display:none}
 /* who is in the room, so the host can see somebody arrive mid-round */
+/* a way back into the game settings from inside the game itself */
+.change-link{
+  width:100%;min-height:36px;padding:7px 0;
+  color:var(--accent);font-size:13.5px;font-weight:700;text-align:center;
+}
+.change-link:active{opacity:.6}
+.sheet-note{
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:4px;
+}
 .room-roster{text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5}
-.room-roster[hidden]{display:none}
 .room-roster b{color:var(--accent)}
 
 /* ============================================================
@@ -704,7 +708,6 @@ body[data-mode="room"] #form-player{display:none}
 .vote-title{font-size:23px;font-weight:820;letter-spacing:-.02em;margin-top:4px}
 .vote-sub{color:var(--muted);font-size:13.5px;line-height:1.5;margin-top:7px}
 .vote-list{display:flex;flex-direction:column;gap:9px}
-.vote-list[hidden]{display:none}
 .vote-option{
   display:flex;align-items:center;gap:12px;
   width:100%;min-height:var(--tap);padding:12px 16px;
@@ -737,7 +740,6 @@ body[data-mode="room"] #form-player{display:none}
 
 /* ---------- the tally ---------- */
 .tally{display:flex;flex-direction:column;gap:10px}
-.tally[hidden]{display:none}
 .tally-row{
   padding:12px 15px;border-radius:16px;
   background:var(--surface);
@@ -791,7 +793,6 @@ body[data-mode="room"] #form-player{display:none}
 .verdict-word.len-md{font-size:clamp(28px,8.5vw,40px)}
 .verdict-word.len-lg{font-size:clamp(23px,6.5vw,32px)}
 .verdict-category{color:var(--muted);font-size:14.5px;font-weight:650}
-.verdict-category[hidden]{display:none}
 .verdict-who{
   margin-top:10px;padding:14px 20px;border-radius:18px;
   background:
@@ -807,7 +808,6 @@ body[data-mode="room"] #form-player{display:none}
   margin-top:12px;font-size:15px;font-weight:700;line-height:1.5;
   color:var(--muted);max-width:22em;
 }
-.verdict-vote[hidden]{display:none}
 .verdict-vote b{color:var(--text)}
 .verdict-vote .got-it{color:var(--good)}
 .verdict-vote .missed-it{color:var(--danger)}
@@ -831,7 +831,6 @@ body[data-mode="room"] #form-player{display:none}
   backdrop-filter:blur(2px);
   animation:fade .18s ease;
 }
-.scrim[hidden]{display:none}
 
 .sheet{
   position:fixed;left:0;right:0;bottom:0;z-index:50;
@@ -844,7 +843,6 @@ body[data-mode="room"] #form-player{display:none}
   box-shadow:0 -12px 40px rgba(0,0,0,.4);
   animation:sheetUp .26s cubic-bezier(.2,.9,.3,1);
 }
-.sheet[hidden]{display:none}
 @keyframes sheetUp{from{transform:translateY(100%)}to{transform:none}}
 .sheet-head{
   display:flex;align-items:center;justify-content:space-between;
@@ -864,7 +862,6 @@ body[data-mode="room"] #form-player{display:none}
   border-radius:var(--radius-sm);padding:12px 14px;
   cursor:pointer;
 }
-.toggle[hidden]{display:none}
 .toggle > span:first-child{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .toggle b{font-size:15px;font-weight:650}
 .toggle i{color:var(--muted);font-size:12.5px;font-style:normal;line-height:1.4}
@@ -886,7 +883,6 @@ body[data-mode="room"] #form-player{display:none}
   font-size:15px;font-weight:750;margin-bottom:8px;
   display:flex;align-items:center;gap:9px;
 }
-#lobby-settings[hidden]{display:none}
 #lobby-summary{margin-top:2px}
 .rules{
   color:var(--muted);font-size:13.5px;line-height:1.65;
@@ -924,7 +920,6 @@ body[data-mode="room"] #form-player{display:none}
   backdrop-filter:blur(3px);
   animation:fade .16s ease;
 }
-.dialog-scrim[hidden]{display:none}
 .dialog{
   position:fixed;z-index:71;
   left:50%;top:50%;transform:translate(-50%,-50%);
@@ -937,7 +932,6 @@ body[data-mode="room"] #form-player{display:none}
   animation:dialogIn .2s cubic-bezier(.2,.9,.3,1.15);
   text-align:center;
 }
-.dialog[hidden]{display:none}
 @keyframes dialogIn{
   from{opacity:0;transform:translate(-50%,-50%) scale(.92)}
   to{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -946,7 +940,6 @@ body[data-mode="room"] #form-player{display:none}
 .dialog-body{color:var(--muted);font-size:14.5px;line-height:1.55;margin-top:8px}
 .dialog-body:empty{display:none}
 .dialog-field{margin-top:16px}
-.dialog-field[hidden]{display:none}
 .dialog-field .input{text-align:center;font-size:17px;font-weight:650}
 .dialog-actions{display:flex;gap:10px;margin-top:18px}
 .dialog-actions .btn{flex:1;min-height:50px}
@@ -967,7 +960,6 @@ body[data-mode="room"] #form-player{display:none}
   animation:fade .18s ease;
   max-width:calc(100vw - 32px);text-align:center;
 }
-.toast[hidden]{display:none}
 
 /* Playing a round: no chrome, no scroll — the card owns the screen. */
 body.is-playing .topbar,

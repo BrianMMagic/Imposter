@@ -242,6 +242,7 @@
               <button class="btn btn-ghost" id="btn-room-again">New round</button>
               <button class="btn btn-ghost" id="btn-room-end">End game</button>
             </div>
+            <button class="change-link" id="btn-room-change" type="button">Change the game</button>
           </div>
           <p class="room-wait" id="room-wait" hidden>Waiting for the next round…</p>
           <p class="room-roster" id="room-roster" hidden></p>
@@ -270,6 +271,7 @@
             <button class="btn btn-ghost" id="btn-vote-again">New round</button>
             <button class="btn btn-ghost" id="btn-vote-end">End game</button>
           </div>
+          <button class="change-link" id="btn-vote-change" type="button">Change the game</button>
         </div>
         <p class="room-wait" id="vote-wait" hidden>Waiting for the host…</p>
       </div>
@@ -318,6 +320,7 @@
         <div class="done-actions" id="verdict-actions" hidden>
           <button class="btn btn-primary btn-lg" id="btn-verdict-again">New round</button>
           <button class="btn btn-ghost" id="btn-verdict-end">End game</button>
+          <button class="change-link" id="btn-verdict-change" type="button">Change the game</button>
         </div>
         <p class="room-wait" id="verdict-wait" hidden>Waiting for the host…</p>
         <div class="done-actions" id="verdict-guest" hidden>
@@ -420,6 +423,10 @@
     </button>
   </div>
   <div class="sheet-body">
+    <p class="hint sheet-note" id="game-sheet-note" hidden>
+      A round is under way. More rounds of voting apply to it straight away;
+      the imposters and categories come in with the next round.
+    </p>
     <div class="sheet-section">
       <h3>Imposters</h3>
       <div class="segmented" id="imposter-seg-room" role="group" aria-label="Number of imposters">

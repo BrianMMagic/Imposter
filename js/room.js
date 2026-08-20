@@ -238,6 +238,12 @@
     });
   }
 
+  /* Change how many rounds of voting the round in progress has (host only).
+     Usually somebody wanting one more vote than they planned for. */
+  function setVotesPlanned(code, n) {
+    return patch('rooms/' + code + '/meta', { votesPlanned: n, voteRev: Date.now() });
+  }
+
   /* Cut a vote short (host only): somebody has put their phone down and
      the tally would otherwise never be complete. Every phone reads this
      and counts whatever ballots are there, so they all agree. */
@@ -333,7 +339,7 @@
     joinRoom: joinRoom, leaveRoom: leaveRoom, closeRoom: closeRoom,
     players: players, deal: deal, reveal: reveal, backToLobby: backToLobby,
     dealtIds: dealtIds, startVote: startVote, closeVote: closeVote,
-    castVote: castVote, votes: votes,
+    setVotesPlanned: setVotesPlanned, castVote: castVote, votes: votes,
     myCard: myCard, watch: watch,
     recall: recall, forget: forget
   };

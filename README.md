@@ -94,8 +94,12 @@ they are all in, every phone shows the same tally at the same moment — who got
 how many, and who voted for them.
 
 The host chooses **1, 2 or 3 rounds of voting** on the setup screen before
-opening the room, or afterwards in the lobby under **Change** — the same setting
-in both places.
+opening the room, in the lobby under **Change**, or from **Change the game**
+during play — the same setting everywhere. Raising it mid-round applies to the
+round in progress, because wanting one more vote than you planned for is the
+usual reason to touch it; every phone's ballot picks up the new count on its
+next poll. The imposter count and categories can be changed the same way, but
+those come in with the next round — the cards for this one are already dealt.
 After each tally the host can run the next one, or go straight to the answer —
 the rounds are what is available, not what is compulsory. If somebody puts their
 phone down mid-vote, **Close the vote now** tallies whatever arrived rather than
@@ -122,9 +126,14 @@ deals them in with the next round. Nobody has to go back to the front and type a
 new code, and the host never has to close and reopen the room to let a friend in.
 The code is on the answer screen too, tappable to share, for exactly this.
 
-**Reveal, New round and End game are the host's alone** — they never appear on
-anybody else's phone, whichever screen it happens to be on. A guest gets the
-round they are in, and a way out of the room.
+**Reveal, New round, End game and Change the game are the host's alone** — they
+never appear on anybody else's phone, whichever screen it happens to be on. A
+guest gets the round they are in, and a way out of the room. Everything hidden
+by the `hidden` attribute is held down by a single `[hidden]{display:none
+!important}` rule near the top of the stylesheet, rather than by a matching rule
+beside every `display:` declaration: a class that sets `display` quietly beats
+the browser's own `[hidden]`, and forgetting one puts a host's button on a
+guest's phone.
 
 **What the database is trusted with: almost nothing.** Each phone makes an
 encryption keypair when it joins and publishes only the public half. The host

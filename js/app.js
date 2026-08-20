@@ -939,7 +939,7 @@
         room = { code: code, playerId: me.playerId, isHost: false, roster: [], round: 0 };
         enterRoom();
       })
-      .catch(function (err) { joinProblem(err.message || 'Could not join'); })
+      .catch(function (err) { joinProblem(friendlyTrouble(err)); })
       .then(function () {
         btn.disabled = false;
         btn.textContent = 'Join';
@@ -953,11 +953,17 @@
     buzz(20);
   }
 
-  function roomTrouble(err) {
-    toast(/fetch|network|Failed/i.test(err.message || '')
-      ? 'Cannot reach the room — check the connection'
-      : (err.message || 'Something went wrong'));
+  /* Chrome says "Failed to fetch", Safari says "Load failed"; neither means
+     anything to somebody standing in a kitchen with no signal. */
+  function friendlyTrouble(err) {
+    var message = (err && err.message) || '';
+    if (/fetch|network|Load failed|ERR_/i.test(message)) {
+      return 'Cannot reach the room — check the connection';
+    }
+    return message || 'Something went wrong';
   }
+
+  function roomTrouble(err) { toast(friendlyTrouble(err)); }
 
   /* ---------- being in a room ---------- */
   function enterRoom() {

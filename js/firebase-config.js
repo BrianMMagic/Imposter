@@ -11,6 +11,5 @@
    steps, including the database rules to paste in.
    ============================================================ */
 window.ImposterFirebase = {
-  databaseURL: ''
-  /* e.g. 'https://imposter-1234-default-rtdb.europe-west1.firebasedatabase.app' */
+  databaseURL: 'https://imposter-app-game-default-rtdb.firebaseio.com'
 };

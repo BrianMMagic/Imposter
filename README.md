@@ -37,8 +37,9 @@ it needs a free Firebase project wiring up once, see below.
 
 ## Playing on separate phones
 
-Rooms are switched off until you point the app at a database, and everything
-else works without one. Four steps, once:
+This is already wired up for this repo — `js/firebase-config.js` holds the
+database URL. To point it at a different project, or to set one up from
+scratch, it is four steps:
 
 1. At [console.firebase.google.com](https://console.firebase.google.com) create a
    project. Analytics is not needed.

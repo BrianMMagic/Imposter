@@ -999,6 +999,21 @@
   /* ---------- starting a room ---------- */
   function hostName() { return $('input-host-name').value.replace(/\s+/g, ' ').trim(); }
 
+  /* A form with one field and no submit button still submits when Enter is
+     pressed, and an unhandled submit reloads the page — which booted the app
+     again, put it back on One phone and threw the typed name away. There is
+     nothing to submit here, so Enter just puts the keyboard away and leaves
+     Create room sitting there waiting. */
+  $('form-host-name').addEventListener('submit', function (e) {
+    e.preventDefault();
+    $('input-host-name').blur();
+  });
+
+  /* Keep it even if they wander off without opening a room. */
+  $('input-host-name').addEventListener('change', function () {
+    M.setMyName(hostName());
+  });
+
   function createRoom() {
     var name = hostName();
     if (!name) { toast('Put your name in first'); $('input-host-name').focus(); return; }

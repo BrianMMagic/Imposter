@@ -354,13 +354,13 @@ svg{width:24px;height:24px}
 body[data-mode="pass"] [data-when="pass"],
 body[data-mode="room"] [data-when="room"]{display:block}
 body[data-mode="room"] #form-host-name{display:flex}
+/* In a room the players are on their own phones, so the local list — and
+   everything that maintains it — has nothing to do with the game. */
 body[data-mode="room"] #players,
 body[data-mode="room"] #players-empty,
 body[data-mode="room"] #order-note,
 body[data-mode="room"] #btn-clear-players,
-body[data-mode="room"] #form-player,
-/* the imposter count needs a line-up to cap it, so in a room it lives in
-   the lobby, where the roster is actually known */
+body[data-mode="room"] #form-player{display:none}
 
 /* ============================================================
    JOIN

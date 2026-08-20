@@ -32,13 +32,23 @@
     <!-- ============ SETUP ============ -->
     <section class="view view-setup is-active" id="view-setup" aria-label="Game setup">
 
+      <!-- how you are playing -->
+      <div class="mode" id="mode" hidden>
+        <div class="segmented mode-seg" role="group" aria-label="How you are playing">
+          <button class="seg" data-mode="pass" aria-pressed="true">One phone</button>
+          <button class="seg" data-mode="room" aria-pressed="false">Separate phones</button>
+        </div>
+        <button class="link-btn link-accent mode-join" id="btn-open-join">Join someone's room →</button>
+      </div>
+
       <!-- players -->
       <section class="card">
         <div class="card-head">
           <h2>Players</h2>
           <span class="pill" id="player-count">0</span>
         </div>
-        <p class="card-sub">This is the order the phone goes round. Hold a player to drag them, or drag the handle.</p>
+        <p class="card-sub" data-when="pass">This is the order the phone goes round. Hold a player to drag them, or drag the handle.</p>
+        <p class="card-sub" data-when="room">Everyone else joins with the room code once you create it.</p>
         <form class="add-row" id="form-player" autocomplete="off">
           <input class="input" id="input-player" type="text" inputmode="text"
                  placeholder="Add a player…" maxlength="18"
@@ -47,6 +57,11 @@
           <button class="btn btn-add" type="submit" id="btn-add-player" aria-label="Add player">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
           </button>
+        </form>
+        <form class="add-row" id="form-host-name" data-when="room" autocomplete="off">
+          <input class="input" id="input-host-name" type="text" placeholder="Your name…"
+                 maxlength="18" autocapitalize="words" autocorrect="off" spellcheck="false"
+                 enterkeyhint="done" aria-label="Your name" />
         </form>
         <div class="player-list" id="players"></div>
         <p class="empty-note" id="players-empty">Add everyone playing — at least 3.</p>
@@ -92,6 +107,57 @@
       </p>
     </section>
 
+    <!-- ============ JOIN A ROOM ============ -->
+    <section class="view view-join" id="view-join" aria-label="Join a room" hidden>
+      <div class="view-head">
+        <h2>Join a room</h2>
+        <p class="view-sub">Ask whoever is hosting for the four-letter code.</p>
+      </div>
+      <form class="join-form" id="form-join" autocomplete="off">
+        <label class="field">
+          <span class="field-label">Room code</span>
+          <input class="input code-input" id="input-code" type="text" maxlength="4"
+                 inputmode="text" autocapitalize="characters" autocorrect="off"
+                 spellcheck="false" placeholder="ABCD" aria-label="Room code" />
+        </label>
+        <label class="field">
+          <span class="field-label">Your name</span>
+          <input class="input" id="input-join-name" type="text" maxlength="18"
+                 autocapitalize="words" autocorrect="off" spellcheck="false"
+                 placeholder="Your name…" enterkeyhint="go" aria-label="Your name" />
+        </label>
+        <p class="join-error" id="join-error" hidden></p>
+        <button class="btn btn-primary btn-lg" id="btn-join" type="submit">Join</button>
+        <button class="btn btn-ghost" id="btn-join-back" type="button">Back</button>
+      </form>
+    </section>
+
+    <!-- ============ LOBBY ============ -->
+    <section class="view view-lobby" id="view-lobby" aria-label="Room lobby" hidden>
+      <div class="lobby-code">
+        <p class="lobby-code-label">Room code</p>
+        <p class="lobby-code-value" id="lobby-code">····</p>
+        <p class="lobby-code-hint" id="lobby-hint">Everyone opens this app and taps <b>Join someone's room</b>.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>In the room</h2>
+          <span class="pill" id="lobby-count">0</span>
+        </div>
+        <div class="lobby-players" id="lobby-players"></div>
+        <p class="empty-note" id="lobby-empty">Waiting for people to join…</p>
+      </div>
+
+      <p class="lobby-status" id="lobby-status"></p>
+
+      <div class="lobby-dock">
+        <p class="start-reason" id="lobby-reason" hidden></p>
+        <button class="btn btn-primary btn-lg" id="btn-lobby-start" hidden>Start game</button>
+        <button class="btn btn-ghost" id="btn-lobby-leave">Leave room</button>
+      </div>
+    </section>
+
     <!-- ============ REVEAL ============ -->
     <section class="view view-reveal" id="view-reveal" aria-label="Pass the phone" hidden>
       <div class="reveal-head">
@@ -129,6 +195,14 @@
 
       <div class="reveal-dock">
         <button class="btn btn-primary btn-lg" id="btn-next" disabled>Hold the card first</button>
+        <div class="room-dock" id="room-dock" hidden>
+          <p class="room-starter" id="room-starter"></p>
+          <div class="room-actions" id="room-actions" hidden>
+            <button class="btn btn-primary" id="btn-room-again">New round</button>
+            <button class="btn btn-ghost" id="btn-room-end">End game</button>
+          </div>
+          <p class="room-wait" id="room-wait" hidden>Waiting for the next round…</p>
+        </div>
       </div>
     </section>
 
@@ -263,6 +337,9 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="js/firebase-config.js"></script>
+<script src="js/seal.js"></script>
+<script src="js/room.js"></script>
 <script src="js/words.js"></script>
 <script src="js/model.js"></script>
 <script src="js/app.js"></script>

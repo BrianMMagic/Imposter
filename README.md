@@ -16,6 +16,11 @@ python3 -m http.server 8000    # then visit http://localhost:8000
 Serving over http(s) also enables the service worker, so the app works offline and
 can be installed to a phone's home screen ("Add to Home Screen").
 
+There are two ways to play. **Pass one phone** round the group needs nothing at
+all — no accounts, no connection, no setup. **Separate phones** lets everyone
+join a room with a four-letter code and read their own card on their own phone;
+it needs a free Firebase project wiring up once, see below.
+
 ## How the game works
 
 1. Add everyone's name, pick how many imposters (1, 2 or 3) and choose the
@@ -30,6 +35,67 @@ can be installed to a phone's home screen ("Add to Home Screen").
    imposters have to blend in without knowing it. After a round or two, everyone
    votes on who's faking.
 
+## Playing on separate phones
+
+Rooms are switched off until you point the app at a database, and everything
+else works without one. Four steps, once:
+
+1. At [console.firebase.google.com](https://console.firebase.google.com) create a
+   project. Analytics is not needed.
+2. **Build → Realtime Database → Create Database**. Pick whichever region is
+   nearest and start it in **locked mode**.
+3. Open the **Rules** tab, paste this, and publish:
+
+   ```json
+   {
+     "rules": {
+       "rooms": {
+         "$code": {
+           ".read": true,
+           ".write": true,
+           ".validate": "$code.matches(/^[A-Z2-9]{4}$/)"
+         }
+       }
+     }
+   }
+   ```
+
+   Reading and writing is allowed **inside a room you already know the code
+   of**, and nowhere else — there is no permission at `rooms` itself, so the
+   list of rooms cannot be fetched and codes cannot be harvested.
+4. Copy the database URL from the top of the **Data** tab — it looks like
+   `https://your-project-default-rtdb.europe-west1.firebasedatabase.app` — and
+   paste it into `js/firebase-config.js`. Commit and push.
+
+The free Spark plan covers this many times over: phones watch a handful of
+fields every second and a half, and only fetch anything larger when it actually
+changes, so a long game is a few hundred kilobytes.
+
+**Then, to play:** the host switches to **Separate phones**, puts their own name
+in and taps **Create room**. Everyone else opens the app, taps **Join someone's
+room** and types the four letters — or just follows a link ending in the code,
+like `.../imposter/#ABCD`, which fills it in for them. Names appear in the host's
+lobby as they arrive. The host taps **Start game** and every phone shows its own
+card, held the same way as ever. Your card stays on screen for the whole round,
+so forgetting your word is a non-issue. The host can deal again with **New
+round** without anybody rejoining.
+
+**What the database is trusted with: nothing.** Each phone makes an encryption
+keypair when it joins and publishes only the public half. The host deals on
+their own phone exactly as they would passing it round, then seals every card to
+the player it belongs to before uploading it. The secret word and who is faking
+it are never uploaded in a form anyone else can read — not the other players,
+not somebody who guesses your room code, not you looking at your own database.
+The round only ever exists in the open on the host's phone, and only for as long
+as the round lasts.
+
+**Worth knowing.** Rooms need every phone online; pass-the-phone still needs
+nothing, so it is the better bet on bad wifi. Reloading the page drops you back
+to the start — rejoin with the same code and your card comes straight back, since
+your key is kept on your own phone. The host closing the room ends it for
+everyone. Rooms are deleted when the host leaves, and a code is free to be reused
+a day later.
+
 ## The app
 
 **Setup**
@@ -43,6 +109,8 @@ can be installed to a phone's home screen ("Add to Home Screen").
   is wearing, so no two cards ever look alike.
 - **Imposters** — 1, 2 or 3. The choice is capped at `players − 2`, so at least
   two people always share the word and there is something to work out.
+- **How you are playing** — one phone passed round, or separate phones in a
+  room. Only shown once a database is configured.
 - **Categories** — 15 built in (Animals, Food & Drink, Movies, Jobs, Places,
   Sports & Games, Around the House, Travel, Music, School, Tech, People,
   Transport, Nature, Celebrations), 38 words each. **People** spans actors,
@@ -93,6 +161,9 @@ css/styles.css          mobile-first styles, light + dark via prefers-color-sche
 js/words.js             the 15 built-in categories
 js/model.js             players, categories, storage and dealing a round
 js/app.js               screens, the hold-to-reveal card and the editors
+js/seal.js              sealing a card to one phone (WebCrypto, no library)
+js/room.js              rooms over the Realtime Database's REST API
+js/firebase-config.js   the database URL — the only thing you fill in
 sw.js                   offline cache (bump VERSION when shell files change)
 manifest.webmanifest    installable-app metadata
 icons/                  app icons — make-icons.py regenerates the PNGs
@@ -109,3 +180,4 @@ icons/                  app icons — make-icons.py regenerates the PNGs
 - There are as many player colours as the 20-player maximum, so a full game
   never has to reuse a shade.
 - Data lives only in this browser on this device; there is no account or sync.
+  Rooms upload nothing but sealed cards and a name per player.

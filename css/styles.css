@@ -315,6 +315,8 @@ svg{width:24px;height:24px}
   transition:transform .12s ease,opacity .12s ease;
 }
 .btn:active{transform:scale(.97)}
+/* a class that sets display beats the browser's [hidden] rule, so say it here */
+.btn[hidden]{display:none}
 .btn-lg{width:100%;min-height:56px;font-size:17px;border-radius:16px}
 .btn-primary{
   background:linear-gradient(135deg,var(--accent),var(--accent-2));
@@ -327,6 +329,108 @@ svg{width:24px;height:24px}
 }
 .btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--line)}
 .btn-danger{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger);width:100%}
+
+/* ---------- how you are playing ---------- */
+.mode{margin-bottom:14px}
+.mode[hidden]{display:none}
+.mode-seg{grid-template-columns:repeat(2,1fr);margin-top:0}
+.mode-seg .seg{font-size:14.5px;font-weight:700}
+.mode-join{display:block;width:100%;text-align:center;margin-top:10px}
+/* rows that belong to one mode only */
+[data-when]{display:none}
+body[data-mode="pass"] [data-when="pass"],
+body[data-mode="room"] [data-when="room"]{display:block}
+body[data-mode="room"] #form-host-name{display:flex}
+body[data-mode="room"] #players,
+body[data-mode="room"] #players-empty,
+body[data-mode="room"] #order-note,
+body[data-mode="room"] #btn-clear-players,
+body[data-mode="room"] #form-player{display:none}
+
+/* ============================================================
+   JOIN
+   ============================================================ */
+.view-join{padding:16px 16px calc(var(--safe-b) + 24px)}
+.join-form{display:flex;flex-direction:column;gap:16px}
+.code-input{
+  text-transform:uppercase;
+  font-size:34px;font-weight:800;letter-spacing:.34em;
+  text-align:center;padding:16px 10px 16px 24px;
+  font-variant-numeric:tabular-nums;
+}
+.join-error{
+  color:var(--danger);font-size:13.5px;font-weight:600;text-align:center;
+}
+.join-error[hidden]{display:none}
+
+/* ============================================================
+   LOBBY
+   ============================================================ */
+.view-lobby{
+  padding:16px 16px calc(var(--safe-b) + 16px);
+  display:flex;flex-direction:column;flex:1;min-height:0;
+}
+.lobby-code{
+  text-align:center;padding:20px 16px 22px;margin-bottom:14px;
+  border-radius:var(--radius);
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb,var(--accent) 24%,transparent), transparent 66%),
+    var(--surface);
+  border:1px solid var(--line);
+}
+.lobby-code-label{
+  color:var(--muted);font-size:12px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;
+}
+.lobby-code-value{
+  font-size:clamp(46px,15vw,64px);font-weight:850;
+  letter-spacing:.16em;line-height:1.1;margin:6px 0 8px;
+  padding-left:.16em;                       /* balance the trailing letter-spacing */
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  font-variant-numeric:tabular-nums;
+}
+.lobby-code-hint{color:var(--muted);font-size:13px;line-height:1.5}
+.lobby-code-hint b{color:var(--text)}
+
+.lobby-players{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.lobby-players:empty{display:none}
+.lobby-player{
+  display:flex;align-items:center;gap:7px;
+  background:var(--surface-2);
+  border:1.5px solid color-mix(in srgb,var(--player,var(--accent)) 45%,var(--line));
+  border-radius:999px;padding:8px 14px;
+  font-size:14.5px;font-weight:650;
+  animation:pop .18s ease;max-width:100%;
+}
+.lobby-player::before{
+  content:"";flex:none;width:10px;height:10px;border-radius:50%;
+  background:var(--player,var(--accent));
+}
+.lobby-player.is-me{border-style:solid;box-shadow:0 0 0 2px color-mix(in srgb,var(--player) 22%,transparent)}
+.lobby-player span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.lobby-status{
+  text-align:center;color:var(--muted);font-size:13.5px;
+  margin:6px 0 14px;line-height:1.5;
+}
+.lobby-dock{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:14px}
+.lobby-dock .btn-ghost{width:100%}
+.lobby-dock .btn[hidden]{display:none}
+
+/* ---------- the dock while playing in a room ---------- */
+.room-dock{display:flex;flex-direction:column;gap:10px}
+.room-dock[hidden]{display:none}
+.room-starter{
+  text-align:center;font-size:16px;font-weight:700;
+  padding:2px 0 2px;
+}
+.room-starter b{color:var(--accent)}
+.room-actions{display:flex;gap:10px}
+.room-actions[hidden]{display:none}
+.room-actions .btn{flex:1}
+.room-wait{text-align:center;color:var(--muted);font-size:13.5px;padding-bottom:6px}
+.room-wait[hidden]{display:none}
 
 /* ============================================================
    REVEAL — the pass-the-phone card

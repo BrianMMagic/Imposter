@@ -373,32 +373,43 @@
     return { ok: true };
   }
 
-  function startRound() {
-    var check = canStart();
-    if (!check.ok) return null;
-
+  /* The deal itself: a word, who is faking it, and who speaks first.
+     Works off any list of players, so a room roster deals the same way
+     the phone-passing one does. */
+  function dealFor(list) {
     var category = pick(selectedCategories());
     var word = pickWord(category);
     rememberWord(category.id, word);
 
-    var count = clampImposters(state.imposterCount);
+    var count = Math.max(1, Math.min(MAX_IMPOSTERS, state.imposterCount, list.length - 2));
     var imposters = {};
-    shuffle(state.players).slice(0, count).forEach(function (p) { imposters[p.id] = true; });
+    shuffle(list).slice(0, count).forEach(function (p) { imposters[p.id] = true; });
 
-    var order = state.settings.shuffleOrder
-      ? shuffle(state.players)
-      : state.players.slice();
-
-    round = {
-      order: order,
-      index: 0,
-      seen: {},
+    return {
       category: category,
       word: word,
       imposters: imposters,
       imposterCount: count,
-      starter: pick(state.players)
+      starter: pick(list)
     };
+  }
+
+  /* Can this list of players be dealt to at all? */
+  function canDeal(list) {
+    if (!list || list.length < 3) return { ok: false, reason: 'Needs at least 3 players' };
+    if (!selectedCategories().length) return { ok: false, reason: 'Pick at least one category' };
+    if (!wordCount()) return { ok: false, reason: 'Those categories have no words' };
+    return { ok: true };
+  }
+
+  function startRound() {
+    var check = canStart();
+    if (!check.ok) return null;
+
+    round = dealFor(state.players);
+    round.order = state.settings.shuffleOrder ? shuffle(state.players) : state.players.slice();
+    round.index = 0;
+    round.seen = {};
     return round;
   }
 
@@ -490,7 +501,8 @@
     parseWords: parseWords, saveCustomCategory: saveCustomCategory,
     deleteCustomCategory: deleteCustomCategory,
 
-    canStart: canStart, startRound: startRound, currentRound: currentRound,
+    canStart: canStart, canDeal: canDeal, dealFor: dealFor,
+    startRound: startRound, currentRound: currentRound,
     endRound: endRound, currentPlayer: currentPlayer, currentCard: currentCard,
     peekCard: peekCard,
     markSeen: markSeen, nextPlayer: nextPlayer, imposterNames: imposterNames,

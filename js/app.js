@@ -5,6 +5,7 @@
   'use strict';
 
   var M = global.ImposterModel;
+  var R = global.ImposterRoom;
   var $ = function (id) { return document.getElementById(id); };
 
   var APP_VERSION = '1.0.0';
@@ -55,14 +56,14 @@
   /* ============================================================
      Navigation
      ============================================================ */
-  var VIEWS = ['setup', 'reveal', 'done'];
+  var VIEWS = ['setup', 'join', 'lobby', 'reveal', 'done'];
 
   function showView(name) {
     view = name;
     VIEWS.forEach(function (v) { $('view-' + v).hidden = v !== name; });
     $('start-dock').hidden = name !== 'setup';
-    document.body.classList.toggle('is-playing', name !== 'setup');
-    if (name === 'setup') releaseWake(); else requestWake();
+    document.body.classList.toggle('is-playing', name === 'reveal' || name === 'done');
+    if (name === 'setup' || name === 'join') releaseWake(); else requestWake();
     window.scrollTo({ top: 0 });
   }
 
@@ -445,13 +446,23 @@
      Start button
      ============================================================ */
   function renderStart() {
+    if (mode === 'room') {
+      var ready = M.selectedCategories().length > 0;
+      $('btn-start').disabled = !ready;
+      $('btn-start').textContent = 'Create room';
+      $('start-reason').textContent = ready ? '' : 'Pick at least one category';
+      $('start-reason').hidden = ready;
+      return;
+    }
     var check = M.canStart();
     $('btn-start').disabled = !check.ok;
+    $('btn-start').textContent = 'Start game';
     $('start-reason').textContent = check.reason || '';
     $('start-reason').hidden = !!check.ok;
   }
 
   $('btn-start').addEventListener('click', function () {
+    if (mode === 'room') { createRoom(); return; }
     if (!M.startRound()) return;
     buzz(14);
     renderCard();
@@ -563,7 +574,7 @@
   function openCard() {
     if (!holding) return;
     $('card').classList.add('is-open');
-    if (!peeking) {
+    if (!peeking && !room) {
       M.markSeen();
       renderNextButton(M.currentCard());
     }
@@ -621,6 +632,11 @@
 
   $('btn-quit').addEventListener('click', function () {
     if (peeking) { endPeek(); return; }
+    if (room) {
+      if (!confirm(room.isHost ? 'Close the room?' : 'Leave the room?')) return;
+      leaveRoom();
+      return;
+    }
     if (!confirm('Quit this round? Nobody else will see their card.')) return;
     closeCard();
     M.endRound();
@@ -818,6 +834,303 @@
   });
 
   /* ============================================================
+     Playing on separate phones
+
+     One phone hosts: it deals exactly as it would when the phone is
+     passed round, then seals each card to the player it belongs to
+     and puts them where the others can fetch them. The round itself
+     never leaves the host's phone, and no phone can open a card that
+     is not its own.
+     ============================================================ */
+  var mode = 'pass';
+  var room = null;          // { code, playerId, isHost, roster, round, stop }
+
+  function roomsAvailable() { return !!R && R.configured(); }
+
+  function setMode(next) {
+    mode = next === 'room' && roomsAvailable() ? 'room' : 'pass';
+    document.body.dataset.mode = mode;
+    document.querySelectorAll('.mode-seg .seg').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.mode === mode));
+    });
+    renderStart();
+  }
+
+  document.querySelector('.mode-seg').addEventListener('click', function (e) {
+    var btn = e.target.closest('.seg');
+    if (!btn) return;
+    setMode(btn.dataset.mode);
+    buzz(8);
+  });
+
+  /* ---------- starting a room ---------- */
+  function hostName() { return $('input-host-name').value.replace(/\s+/g, ' ').trim(); }
+
+  function createRoom() {
+    var name = hostName();
+    if (!name) { toast('Put your name in first'); $('input-host-name').focus(); return; }
+
+    var btn = $('btn-start');
+    btn.disabled = true;
+    btn.textContent = 'Opening the room…';
+
+    R.createRoom()
+      .then(function (code) {
+        return R.joinRoom(code, name).then(function (me) {
+          room = { code: code, playerId: me.playerId, isHost: true, roster: [], round: 0 };
+        });
+      })
+      .then(function () {
+        enterRoom();
+      })
+      .catch(function (err) {
+        roomTrouble(err);
+        btn.disabled = false;
+        btn.textContent = 'Create room';
+        renderStart();
+      });
+  }
+
+  /* ---------- joining one ---------- */
+  $('btn-open-join').addEventListener('click', function () { openJoin(''); });
+
+  function openJoin(code) {
+    $('input-code').value = code || '';
+    $('input-join-name').value = (M.state().players[0] && M.state().players[0].name) || '';
+    $('join-error').hidden = true;
+    showView('join');
+    if (!code) $('input-code').focus();
+  }
+
+  $('btn-join-back').addEventListener('click', function () { showView('setup'); });
+
+  $('form-join').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = $('input-code').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var name = $('input-join-name').value.replace(/\s+/g, ' ').trim();
+    var problem = $('join-error');
+    problem.hidden = true;
+
+    if (code.length !== R.CODE_LEN) { return joinProblem('That code is ' + R.CODE_LEN + ' letters'); }
+    if (!name) { return joinProblem('Put your name in too'); }
+
+    var btn = $('btn-join');
+    btn.disabled = true;
+    btn.textContent = 'Joining…';
+
+    R.roomExists(code)
+      .then(function (found) {
+        if (!found) throw new Error('No room with that code — check it and try again');
+        return R.joinRoom(code, name);
+      })
+      .then(function (me) {
+        room = { code: code, playerId: me.playerId, isHost: false, roster: [], round: 0 };
+        enterRoom();
+      })
+      .catch(function (err) { joinProblem(err.message || 'Could not join'); })
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = 'Join';
+      });
+  });
+
+  function joinProblem(message) {
+    var problem = $('join-error');
+    problem.textContent = message;
+    problem.hidden = false;
+    buzz(20);
+  }
+
+  function roomTrouble(err) {
+    toast(/fetch|network|Failed/i.test(err.message || '')
+      ? 'Cannot reach the room — check the connection'
+      : (err.message || 'Something went wrong'));
+  }
+
+  /* ---------- being in a room ---------- */
+  function enterRoom() {
+    $('lobby-code').textContent = room.code;
+    $('btn-lobby-start').hidden = !room.isHost;
+    $('lobby-hint').hidden = !room.isHost;
+    renderLobby();
+    showView('lobby');
+    watchRoom();
+    refreshRoster();
+  }
+
+  function watchRoom() {
+    if (room.stop) room.stop();
+    room.stop = R.watch(room.code, onRoomChanged, function () {
+      $('lobby-status').textContent = 'Trouble reaching the room — still trying…';
+    });
+  }
+
+  function onRoomChanged(meta) {
+    if (!room) return;
+    if (!meta) { leaveRoom('The host closed the room'); return; }
+
+    refreshRoster();
+
+    if (meta.phase === 'dealt' && meta.round !== room.round) {
+      room.round = meta.round;
+      room.starter = meta.starter;
+      collectCard();
+    } else if (meta.phase === 'lobby' && room.round) {
+      room.round = 0;
+      showView('lobby');
+      renderLobby();
+    }
+  }
+
+  function refreshRoster() {
+    R.players(room.code).then(function (list) {
+      if (!room) return;
+      room.roster = list.map(function (p, i) {
+        p.color = M.PLAYER_COLORS[i % M.PLAYER_COLORS.length];
+        return p;
+      });
+      renderLobby();
+    }).catch(function () {});
+  }
+
+  function renderLobby() {
+    if (!room) return;
+    var list = $('lobby-players');
+    list.innerHTML = '';
+
+    room.roster.forEach(function (p) {
+      var chip = el('span', 'lobby-player');
+      chip.style.setProperty('--player', p.color);
+      if (p.id === room.playerId) chip.classList.add('is-me');
+      chip.appendChild(el('span', null, p.name + (p.id === room.playerId ? ' (you)' : '')));
+      list.appendChild(chip);
+    });
+
+    $('lobby-count').textContent = room.roster.length;
+    $('lobby-empty').hidden = room.roster.length > 0;
+
+    if (room.isHost) {
+      var check = M.canDeal(room.roster);
+      $('btn-lobby-start').disabled = !check.ok;
+      $('lobby-reason').textContent = check.reason || '';
+      $('lobby-reason').hidden = !!check.ok;
+      $('lobby-status').textContent = check.ok
+        ? 'Start when everyone is in — you can deal again at any point.'
+        : '';
+    } else {
+      $('lobby-status').textContent = 'You are in. Waiting for the host to start…';
+    }
+  }
+
+  /* ---------- the host deals ---------- */
+  $('btn-lobby-start').addEventListener('click', function () { dealToRoom(); });
+  $('btn-room-again').addEventListener('click', function () { dealToRoom(); });
+
+  function dealToRoom() {
+    if (!room || !room.isHost) return;
+    var check = M.canDeal(room.roster);
+    if (!check.ok) { toast(check.reason); return; }
+
+    var btn = $('btn-lobby-start');
+    btn.disabled = true;
+    btn.textContent = 'Dealing…';
+
+    var deal = M.dealFor(room.roster);
+    var number = room.round + 1;
+
+    R.deal(room.code, {
+      number: number,
+      starterName: deal.starter.name,
+      imposterCount: deal.imposterCount
+    }, function (player) {
+      var isImposter = !!deal.imposters[player.id];
+      return {
+        name: player.name,
+        color: player.color,
+        isImposter: isImposter,
+        word: isImposter ? null : deal.word,
+        category: { emoji: deal.category.emoji, name: deal.category.name },
+        showCategory: !isImposter || M.state().settings.imposterSeesCategory
+      };
+    }, room.roster)
+      .catch(roomTrouble)
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = 'Start game';
+      });
+  }
+
+  /* ---------- everybody picks up their own card ---------- */
+  function collectCard() {
+    R.myCard(room.code, room.playerId).then(function (card) {
+      if (!room || !card) return;
+      showRoomCard(card);
+    }).catch(function (err) {
+      toast('Could not open your card — ' + (err.message || 'try again'));
+    });
+  }
+
+  function showRoomCard(card) {
+    peeking = null;
+    room.card = card;
+
+    paintCard({
+      player: { name: card.name, color: card.color },
+      isImposter: card.isImposter,
+      word: card.word,
+      category: card.category,
+      showCategory: card.showCategory
+    }, 'Your card');
+
+    $('progress').innerHTML = '';
+    $('progress-text').textContent = 'Room ' + room.code;
+    $('btn-quit').setAttribute('aria-label', 'Leave the room');
+
+    $('btn-next').hidden = true;
+    $('room-dock').hidden = false;
+    $('room-actions').hidden = !room.isHost;
+    $('room-wait').hidden = room.isHost;
+    $('room-starter').innerHTML = '';
+    $('room-starter').appendChild(el('b', null, room.starter || ''));
+    $('room-starter').appendChild(document.createTextNode(' starts the round'));
+
+    showView('reveal');
+    buzz([12, 60, 12]);
+  }
+
+  /* ---------- leaving ---------- */
+  $('btn-lobby-leave').addEventListener('click', function () {
+    if (room && room.isHost && !confirm('Close the room? Everyone else is dropped out too.')) return;
+    leaveRoom();
+  });
+
+  $('btn-room-end').addEventListener('click', function () {
+    if (!confirm('End the game and close the room?')) return;
+    leaveRoom();
+  });
+
+  function leaveRoom(message) {
+    if (!room) return;
+    var current = room;
+    room = null;
+    if (current.stop) current.stop();
+
+    if (current.isHost) R.closeRoom(current.code);
+    else R.leaveRoom(current.code, current.playerId);
+
+    $('btn-next').hidden = false;
+    $('room-dock').hidden = true;
+    showView('setup');
+    if (message) toast(message);
+  }
+
+  /* A shared link, imposter.example/#ABCD, drops straight into joining. */
+  function codeFromLink() {
+    var raw = (location.hash || '').replace('#', '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return raw.length === R.CODE_LEN ? raw : '';
+  }
+
+  /* ============================================================
      Service worker — activate a new build and reload, unless a
      round is in progress or something is being typed into a sheet.
      ============================================================ */
@@ -865,7 +1178,11 @@
 
   M.load();
   renderAll();
-  showView('setup');
+
+  $('mode').hidden = !roomsAvailable();
+  setMode('pass');
+  var linked = roomsAvailable() ? codeFromLink() : '';
+  if (linked) openJoin(linked); else showView('setup');
   $('version').textContent = 'Imposter v' + APP_VERSION;
   registerSW();
 

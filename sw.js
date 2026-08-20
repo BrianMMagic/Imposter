@@ -6,13 +6,16 @@
    fallback for offline use. Icons are served cache-first and
    refreshed in the background.
    ============================================================ */
-var VERSION = 'v2';
+var VERSION = 'v3';
 var CACHE = 'imposter-' + VERSION;
 
 var ASSETS = [
   './',
   './index.html',
   './css/styles.css',
+  './js/firebase-config.js',
+  './js/seal.js',
+  './js/room.js',
   './js/words.js',
   './js/model.js',
   './js/app.js',

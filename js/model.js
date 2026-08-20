@@ -116,7 +116,8 @@
       }
       if (Array.isArray(saved.selected)) state.selected = saved.selected.slice();
       if (saved.recent && typeof saved.recent === 'object') state.recent = saved.recent;
-      state.imposterCount = clampImposters(saved.imposterCount);
+      var wanted = parseInt(saved.imposterCount, 10);
+      state.imposterCount = Math.min(Math.max(isFinite(wanted) ? wanted : 1, 1), MAX_IMPOSTERS);
       if (saved.settings) {
         Object.keys(state.settings).forEach(function (k) {
           if (typeof saved.settings[k] === 'boolean') state.settings[k] = saved.settings[k];
@@ -258,8 +259,13 @@
     return Math.min(v, maxImposters());
   }
 
-  function setImposterCount(n) {
-    state.imposterCount = clampImposters(n);
+  /* `cap` is how many the current line-up can take: the phone-passing list
+     knows its own, a room passes its roster's. Left out, the local list
+     decides. */
+  function setImposterCount(n, cap) {
+    var max = cap == null ? maxImposters() : Math.max(1, Math.min(MAX_IMPOSTERS, cap));
+    var wanted = parseInt(n, 10);
+    state.imposterCount = Math.min(Math.max(isFinite(wanted) ? wanted : 1, 1), max);
     save();
     return state.imposterCount;
   }

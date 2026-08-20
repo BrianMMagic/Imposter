@@ -75,8 +75,10 @@ changes, so a long game is a few hundred kilobytes.
 in and taps **Create room**. Everyone else opens the app, taps **Join someone's
 room** and types the four letters — or just follows a link ending in the code,
 like `.../imposter/#ABCD`, which fills it in for them. Names appear in the host's
-lobby as they arrive. The host taps **Start game** and every phone shows its own
-card, held the same way as ever. Your card stays on screen for the whole round,
+lobby as they arrive. **Change** in the lobby sets the imposters and categories
+while people are still arriving — the imposter count is capped by who has
+actually joined, so it opens up as the room fills. The host taps **Start game**
+and every phone shows its own card, held the same way as ever. Your card stays on screen for the whole round,
 so forgetting your word is a non-issue. The host can deal again with **New
 round** without anybody rejoining.
 
@@ -110,7 +112,8 @@ a day later.
 - **Imposters** — 1, 2 or 3. The choice is capped at `players − 2`, so at least
   two people always share the word and there is something to work out.
 - **How you are playing** — one phone passed round, or separate phones in a
-  room. Only shown once a database is configured.
+  room. Only shown once a database is configured. In a room the imposter count
+  moves to the lobby, which is the only place that knows the line-up.
 - **Categories** — 15 built in (Animals, Food & Drink, Movies, Jobs, Places,
   Sports & Games, Around the House, Travel, Music, School, Tech, People,
   Transport, Nature, Celebrations), 38 words each. **People** spans actors,

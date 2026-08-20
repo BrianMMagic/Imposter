@@ -345,7 +345,10 @@ body[data-mode="room"] #players,
 body[data-mode="room"] #players-empty,
 body[data-mode="room"] #order-note,
 body[data-mode="room"] #btn-clear-players,
-body[data-mode="room"] #form-player{display:none}
+body[data-mode="room"] #form-player,
+/* the imposter count needs a line-up to cap it, so in a room it lives in
+   the lobby, where the roster is actually known */
+body[data-mode="room"] #card-imposters{display:none}
 
 /* ============================================================
    JOIN
@@ -714,7 +717,12 @@ body[data-mode="room"] #form-player{display:none}
 .toggle input:checked ~ .switch{background:var(--accent);border-color:var(--accent)}
 .toggle input:checked ~ .switch::after{transform:translateX(20px);background:#fff}
 
-.sheet-section h3{font-size:15px;font-weight:750;margin-bottom:8px}
+.sheet-section h3{
+  font-size:15px;font-weight:750;margin-bottom:8px;
+  display:flex;align-items:center;gap:9px;
+}
+#lobby-settings[hidden]{display:none}
+#lobby-summary{margin-top:2px}
 .rules{
   color:var(--muted);font-size:13.5px;line-height:1.65;
   padding-left:20px;display:flex;flex-direction:column;gap:6px;

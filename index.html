@@ -73,7 +73,7 @@
       </section>
 
       <!-- imposters -->
-      <section class="card">
+      <section class="card" id="card-imposters">
         <div class="card-head">
           <h2>Imposters</h2>
         </div>
@@ -148,6 +148,14 @@
         <div class="lobby-players" id="lobby-players"></div>
         <p class="empty-note" id="lobby-empty">Waiting for people to join…</p>
       </div>
+
+      <section class="card" id="lobby-settings" hidden>
+        <div class="card-head">
+          <h2>This game</h2>
+          <button class="link-btn link-accent" id="btn-lobby-edit" type="button">Change</button>
+        </div>
+        <p class="card-sub" id="lobby-summary"></p>
+      </section>
 
       <p class="lobby-status" id="lobby-status"></p>
 
@@ -302,6 +310,39 @@
 
     <button class="btn btn-danger" id="btn-reset">Reset everything</button>
     <p class="version" id="version"></p>
+  </div>
+</section>
+
+<!-- ============ GAME SHEET (from the lobby) ============ -->
+<section class="sheet" id="sheet-game" hidden aria-label="This game">
+  <div class="sheet-head">
+    <h2>This game</h2>
+    <button class="icon-btn" data-close-sheet aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="sheet-section">
+      <h3>Imposters</h3>
+      <div class="segmented" id="imposter-seg-room" role="group" aria-label="Number of imposters">
+        <button class="seg" data-count="1" aria-pressed="true">1</button>
+        <button class="seg" data-count="2" aria-pressed="false">2</button>
+        <button class="seg" data-count="3" aria-pressed="false">3</button>
+      </div>
+      <p class="hint" id="imposter-hint-room" hidden></p>
+    </div>
+
+    <div class="sheet-section">
+      <h3>Categories <span class="pill" id="category-count-room">0</span></h3>
+      <div class="chips" id="categories-room"></div>
+      <div class="card-actions">
+        <button class="link-btn" id="btn-select-all-room" type="button">Select all</button>
+        <button class="link-btn" id="btn-select-none-room" type="button">Clear</button>
+        <button class="link-btn link-accent" id="btn-new-category-room" type="button">＋ Your own</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-lg" data-close-sheet>Done</button>
   </div>
 </section>
 

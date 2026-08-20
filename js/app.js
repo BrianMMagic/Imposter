@@ -13,6 +13,7 @@
 
   var view = 'setup';
   var editingCategory = null;
+  var cameFromGameSheet = false;
   var wakeLock = null;
 
   /* ============================================================
@@ -358,7 +359,7 @@
       var n = parseInt(btn.dataset.count, 10);
       var allowed = enough && n <= max;
       btn.disabled = !allowed;
-      btn.setAttribute('aria-pressed', String(allowed && n === s.imposterCount));
+      btn.setAttribute('aria-pressed', String(allowed && n === Math.min(s.imposterCount, max)));
     });
 
     var hint = $('imposter-hint');
@@ -377,7 +378,7 @@
   $('imposter-seg').addEventListener('click', function (e) {
     var btn = e.target.closest('.seg');
     if (!btn || btn.disabled) return;
-    M.setImposterCount(btn.dataset.count);
+    M.setImposterCount(btn.dataset.count, M.maxImposters());
     buzz(8);
     renderImposters();
   });
@@ -386,7 +387,13 @@
      Setup — categories
      ============================================================ */
   function renderCategories() {
-    var wrap = $('categories');
+    renderChipsInto($('categories'));
+    renderChipsInto($('categories-room'));
+    renderCategoryCount();
+  }
+
+  function renderChipsInto(wrap) {
+    if (!wrap) return;
     wrap.innerHTML = '';
 
     M.allCategories().forEach(function (cat) {
@@ -399,10 +406,11 @@
 
       chip.addEventListener('click', function () {
         M.toggleCategory(cat.id);
-        chip.setAttribute('aria-pressed', String(M.isSelected(cat.id)));
         buzz(6);
-        renderCategoryCount();
+        /* both grids show the same selection, so redraw whichever exist */
+        renderCategories();
         renderStart();
+        renderLobbySummary();
       });
 
       if (cat.custom) {
@@ -419,13 +427,13 @@
 
       wrap.appendChild(chip);
     });
-
-    renderCategoryCount();
   }
 
   function renderCategoryCount() {
     var n = M.selectedCategories().length;
-    $('category-count').textContent = n ? n + ' · ' + M.wordCount() + ' words' : '0';
+    var label = n ? n + ' · ' + M.wordCount() + ' words' : '0';
+    $('category-count').textContent = label;
+    if ($('category-count-room')) $('category-count-room').textContent = label;
   }
 
   $('btn-select-all').addEventListener('click', function () {
@@ -730,8 +738,7 @@
 
   function closeSheets() {
     $('scrim').hidden = true;
-    $('sheet-settings').hidden = true;
-    $('sheet-category').hidden = true;
+    document.querySelectorAll('.sheet').forEach(function (sheet) { sheet.hidden = true; });
   }
 
   $('scrim').addEventListener('click', closeSheets);
@@ -780,8 +787,9 @@
   var EMOJI_CHOICES = ('🎩✏️🍕🐾🎬💼🌍⚽🏠✈️🎵🎒📱🚗🌦️🎉🍺🧩🔮🦄🏆🎨🐙🚀' +
     '💡🧠🎯🕹️📺🍀🔥⭐️').match(/\p{Extended_Pictographic}(️)?/gu) || ['✏️'];
 
-  function openCategorySheet(cat) {
+  function openCategorySheet(cat, fromGame) {
     editingCategory = cat || null;
+    cameFromGameSheet = !!fromGame || (!!room && !$('sheet-game').hidden);
     $('cat-sheet-title').textContent = cat ? 'Edit category' : 'New category';
     $('cat-emoji').textContent = cat ? cat.emoji : M.pick(EMOJI_CHOICES);
     $('cat-name').value = cat ? cat.name : '';
@@ -820,6 +828,8 @@
     closeSheets();
     renderCategories();
     renderStart();
+    renderLobbySummary();
+    backToGameSheet();
     toast(editingCategory ? 'Category saved' : 'Category added');
   });
 
@@ -830,6 +840,8 @@
     closeSheets();
     renderCategories();
     renderStart();
+    renderLobbySummary();
+    backToGameSheet();
     toast('Category deleted');
   });
 
@@ -951,6 +963,7 @@
   function enterRoom() {
     $('lobby-code').textContent = room.code;
     $('btn-lobby-start').hidden = !room.isHost;
+    $('lobby-settings').hidden = !room.isHost;
     $('lobby-hint').hidden = !room.isHost;
     renderLobby();
     showView('lobby');
@@ -1008,6 +1021,9 @@
 
     $('lobby-count').textContent = room.roster.length;
     $('lobby-empty').hidden = room.roster.length > 0;
+    $('lobby-settings').hidden = !room.isHost;
+    renderLobbySummary();
+    renderRoomImposters();
 
     if (room.isHost) {
       var check = M.canDeal(room.roster);
@@ -1021,6 +1037,86 @@
       $('lobby-status').textContent = 'You are in. Waiting for the host to start…';
     }
   }
+
+  /* ---------- changing the game from the lobby ----------
+     The imposter cap is whoever has actually joined, which only the
+     lobby knows — the setup screen has no line-up to measure. */
+  function roomImposterCap() {
+    return room ? room.roster.length - 2 : 1;
+  }
+
+  function renderRoomImposters() {
+    if (!room) return;
+    var cap = roomImposterCap();
+    var max = Math.max(1, Math.min(M.MAX_IMPOSTERS, cap));
+    var enough = cap >= 1;
+    var count = M.state().imposterCount;
+
+    document.querySelectorAll('#imposter-seg-room .seg').forEach(function (btn) {
+      var n = parseInt(btn.dataset.count, 10);
+      var allowed = enough && n <= max;
+      btn.disabled = !allowed;
+      btn.setAttribute('aria-pressed', String(allowed && n === Math.min(count, max)));
+    });
+
+    var hint = $('imposter-hint-room');
+    if (!enough) {
+      hint.textContent = 'Waiting for at least 3 players.';
+      hint.hidden = false;
+    } else if (max < M.MAX_IMPOSTERS) {
+      hint.textContent = room.roster.length + ' players means up to ' + max +
+        (max === 1 ? ' imposter' : ' imposters') + ' — two people always share the word.';
+      hint.hidden = false;
+    } else {
+      hint.hidden = true;
+    }
+  }
+
+  $('imposter-seg-room').addEventListener('click', function (e) {
+    var btn = e.target.closest('.seg');
+    if (!btn || btn.disabled) return;
+    M.setImposterCount(btn.dataset.count, roomImposterCap());
+    buzz(8);
+    renderRoomImposters();
+    renderLobbySummary();
+  });
+
+  function renderLobbySummary() {
+    if (!room || !room.isHost) return;
+    var count = Math.min(M.state().imposterCount, Math.max(1, roomImposterCap()));
+    var cats = M.selectedCategories().length;
+    $('lobby-summary').textContent =
+      count + (count === 1 ? ' imposter' : ' imposters') + ' · ' +
+      cats + (cats === 1 ? ' category' : ' categories') + ' · ' +
+      M.wordCount() + ' words';
+  }
+
+  $('btn-lobby-edit').addEventListener('click', function () {
+    renderRoomImposters();
+    renderCategories();
+    openSheet('sheet-game');
+  });
+
+  $('btn-select-all-room').addEventListener('click', function () {
+    M.selectAllCategories(true);
+    renderCategories();
+    renderStart();
+    renderLobbySummary();
+  });
+
+  $('btn-select-none-room').addEventListener('click', function () {
+    M.selectAllCategories(false);
+    renderCategories();
+    renderStart();
+    renderLobbySummary();
+  });
+
+  /* The category editor is a sheet too, so step out of this one and come
+     back to it afterwards. */
+  $('btn-new-category-room').addEventListener('click', function () {
+    closeSheets();
+    openCategorySheet(null, true);
+  });
 
   /* ---------- the host deals ---------- */
   $('btn-lobby-start').addEventListener('click', function () { dealToRoom(); });
@@ -1128,6 +1224,12 @@
   function codeFromLink() {
     var raw = (location.hash || '').replace('#', '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     return raw.length === R.CODE_LEN ? raw : '';
+  }
+
+  function backToGameSheet() {
+    if (!cameFromGameSheet) return;
+    cameFromGameSheet = false;
+    if (room && room.isHost) { renderRoomImposters(); openSheet('sheet-game'); }
   }
 
   /* ============================================================
